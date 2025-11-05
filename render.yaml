@@ -1,0 +1,52 @@
+# Render.com Blueprint for SRHR Dashboard
+
+databases:
+  - name: srhr-postgres
+    databaseName: srhr_dashboard
+    user: srhr_user
+    plan: free
+    postgresMajorVersion: 15
+    # PostGIS is automatically available on Render
+
+services:
+  # Backend API
+  - type: web
+    name: srhr-dashboard-api
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app_db:app"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: srhr-postgres
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FLASK_ENV
+        value: production
+      - key: CORS_ORIGINS
+        value: https://your-frontend-url.onrender.com
+    healthCheckPath: /api/health
+
+  # Frontend (Static Site)
+  - type: web
+    name: srhr-dashboard-frontend
+    env: static
+    plan: free
+    buildCommand: "npm install && npm run build"
+    staticPublishPath: ./dist
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://srhr-dashboard-api.onrender.com/api/*
+

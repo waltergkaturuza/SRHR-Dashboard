@@ -1,0 +1,54 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [31.0492, -17.8252]
+      },
+      "properties": {
+        "id": 1,
+        "name": "Harare Central District Health Office",
+        "type": "District Office",
+        "youth_count": 45,
+        "total_members": 120,
+        "year": 2024,
+        "address": "Corner 5th Street & Central Avenue"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [31.0312, -17.8352]
+      },
+      "properties": {
+        "id": 2,
+        "name": "Mbare Health Decision Committee",
+        "type": "Community Health Committee",
+        "youth_count": 32,
+        "total_members": 85,
+        "year": 2024,
+        "address": "Mbare Township"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [31.0712, -17.8052]
+      },
+      "properties": {
+        "id": 3,
+        "name": "Borrowdale Health Forum",
+        "type": "Health Forum",
+        "youth_count": 28,
+        "total_members": 95,
+        "year": 2024,
+        "address": "Borrowdale Shopping Center"
+      }
+    }
+  ]
+}
+

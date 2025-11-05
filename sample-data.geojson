@@ -1,0 +1,87 @@
+{
+  "type": "FeatureCollection",
+  "name": "Harare Health Decision Spaces Sample",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [31.0472, -17.8640]
+      },
+      "properties": {
+        "name": "Mbare Polyclinic",
+        "districtId": "mbare",
+        "type": "health_center",
+        "youthParticipants": 28,
+        "totalParticipants": 56,
+        "year": 2024,
+        "description": "Main health center serving Mbare district with active youth participation in health committees"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [31.0123, -17.8745]
+      },
+      "properties": {
+        "name": "Highfield Youth Health Forum",
+        "districtId": "highfield",
+        "type": "community_forum",
+        "youthParticipants": 35,
+        "totalParticipants": 64,
+        "year": 2024,
+        "description": "Community-led health forum with strong youth representation"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [30.9982, -17.8234]
+      },
+      "properties": {
+        "name": "Warren Park District Health Office",
+        "districtId": "warren-park",
+        "type": "district_office",
+        "youthParticipants": 22,
+        "totalParticipants": 49,
+        "year": 2024,
+        "description": "District health administrative office with youth advisory board"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [30.9645, -17.8912]
+      },
+      "properties": {
+        "name": "Glen View Primary Health Clinic",
+        "districtId": "glen-view",
+        "type": "clinic",
+        "youthParticipants": 25,
+        "totalParticipants": 55,
+        "year": 2024,
+        "description": "Primary care clinic with youth health worker program"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [30.9523, -17.9045]
+      },
+      "properties": {
+        "name": "Budiriro Community Health Center",
+        "districtId": "budiriro",
+        "type": "health_center",
+        "youthParticipants": 31,
+        "totalParticipants": 60,
+        "year": 2024,
+        "description": "Community health center with dedicated youth health services"
+      }
+    }
+  ]
+}
+
