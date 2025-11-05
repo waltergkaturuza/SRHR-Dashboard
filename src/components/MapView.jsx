@@ -29,10 +29,37 @@ function MapUpdater({ selectedFeature }) {
 const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature, loading }) => {
   const mapRef = useRef();
   const { theme } = useTheme();
+  const [isFullscreen, setIsFullscreen] = React.useState(false);
+  const containerRef = React.useRef(null);
   
   // Harare center coordinates
   const center = [-17.8252, 31.0492];
   const zoom = 12;
+  
+  // Fullscreen toggle
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+      }).catch(err => {
+        console.error('Error attempting to enable fullscreen:', err);
+      });
+    } else {
+      document.exitFullscreen().then(() => {
+        setIsFullscreen(false);
+      });
+    }
+  };
+  
+  // Listen for fullscreen changes
+  React.useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
   
   // Map tile URLs for different themes
   const tileUrls = {
@@ -107,7 +134,7 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
   }
 
   return (
-    <div className="map-container">
+    <div className={`map-container ${isFullscreen ? 'fullscreen' : ''}`} ref={containerRef}>
       <MapContainer
         center={center}
         zoom={zoom}
@@ -211,6 +238,23 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
       <div className="map-info">
         <p>Last update: <span className="update-time">8 seconds ago</span></p>
       </div>
+
+      {/* Fullscreen Toggle Button */}
+      <button 
+        className="fullscreen-toggle"
+        onClick={toggleFullscreen}
+        title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+      >
+        {isFullscreen ? (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+          </svg>
+        ) : (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+          </svg>
+        )}
+      </button>
     </div>
   );
 };

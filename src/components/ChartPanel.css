@@ -5,7 +5,8 @@
   flex-direction: column;
   gap: 1.5rem;
   overflow-y: auto;
-  max-height: 450px;
+  max-height: 30vh; /* Reduced to give more space to map */
+  min-height: 250px;
   transition: background-color 0.3s ease;
 }
 
