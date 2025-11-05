@@ -1,0 +1,29 @@
+# Render.com ignore file for Static Site deployment
+# Ignore backend Python files
+
+# Python/Backend files
+requirements.txt
+app.py
+app_db.py
+Procfile
+runtime.txt
+*.pyc
+__pycache__/
+
+# Backend directories
+database/
+venv/
+uploads/
+
+# Documentation (optional)
+*.md
+!README.md
+
+# Environment files
+.env
+.env.*
+
+# Git
+.git/
+.gitignore
+
