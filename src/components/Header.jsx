@@ -10,14 +10,16 @@ const Header = ({ selectedYear, onYearChange, onUploadClick }) => {
 
   // Fetch available years from API
   React.useEffect(() => {
-    fetch('/api/years')
-      .then(res => res.json())
-      .then(data => {
-        if (data.years && data.years.length > 0) {
-          setYears(data.years);
-        }
-      })
-      .catch(err => console.error('Error fetching years:', err));
+    import('../config').then(({ getApiUrl }) => {
+      fetch(getApiUrl('api/years'))
+        .then(res => res.json())
+        .then(data => {
+          if (data.years && data.years.length > 0) {
+            setYears(data.years);
+          }
+        })
+        .catch(err => console.error('Error fetching years:', err));
+    });
   }, []);
 
   return (

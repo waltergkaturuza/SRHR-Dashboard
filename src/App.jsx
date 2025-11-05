@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { getApiUrl } from './config';
 import Header from './components/Header';
 import MapView from './components/MapView';
 import Sidebar from './components/Sidebar';
@@ -25,9 +26,9 @@ function App() {
     setLoading(true);
     try {
       const [geoResponse, trendResponse, statsResponse] = await Promise.all([
-        axios.get(`/api/geospatial-data?year=${selectedYear}`),
-        axios.get('/api/trends'),
-        axios.get(`/api/statistics?year=${selectedYear}`)
+        axios.get(getApiUrl(`api/geospatial-data?year=${selectedYear}`)),
+        axios.get(getApiUrl('api/trends')),
+        axios.get(getApiUrl(`api/statistics?year=${selectedYear}`))
       ]);
 
       setGeospatialData(geoResponse.data);
