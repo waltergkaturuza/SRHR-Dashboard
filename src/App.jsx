@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { getApiUrl } from './config';
 import Header from './components/Header';
@@ -6,9 +7,11 @@ import MapView from './components/MapView';
 import Sidebar from './components/Sidebar';
 import ChartPanel from './components/ChartPanel';
 import UploadModal from './components/UploadModal';
+import AdminDashboard from './components/AdminDashboard';
+import Navigation from './components/Navigation';
 import './App.css';
 
-function App() {
+function DashboardView() {
   const [geospatialData, setGeospatialData] = useState(null);
   const [trendData, setTrendData] = useState([]);
   const [statistics, setStatistics] = useState(null);
@@ -51,7 +54,7 @@ function App() {
   };
 
   return (
-    <div className="app">
+    <>
       <Header 
         selectedYear={selectedYear}
         onYearChange={setSelectedYear}
@@ -88,7 +91,22 @@ function App() {
           onUploadSuccess={handleUploadSuccess}
         />
       )}
-    </div>
+    </>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <div className="app">
+        <Navigation />
+        <Routes>
+          <Route path="/" element={<DashboardView />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </Router>
   );
 }
 
