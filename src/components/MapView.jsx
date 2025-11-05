@@ -30,6 +30,8 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
   const mapRef = useRef();
   const { theme } = useTheme();
   const [isFullscreen, setIsFullscreen] = React.useState(false);
+  const [mapLayer, setMapLayer] = React.useState('street'); // street, satellite, terrain, hybrid
+  const [showLayerMenu, setShowLayerMenu] = React.useState(false);
   const containerRef = React.useRef(null);
   
   // Harare center coordinates
@@ -61,10 +63,55 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
   
-  // Map tile URLs for different themes
-  const tileUrls = {
-    dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+  // Map layer configurations
+  const mapLayers = {
+    street: {
+      dark: {
+        url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | CartoDB'
+      },
+      light: {
+        url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | CartoDB'
+      }
+    },
+    satellite: {
+      dark: {
+        url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        attribution: '&copy; <a href="https://www.esri.com/">Esri</a> World Imagery'
+      },
+      light: {
+        url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        attribution: '&copy; <a href="https://www.esri.com/">Esri</a> World Imagery'
+      }
+    },
+    terrain: {
+      dark: {
+        url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+        attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a> contributors'
+      },
+      light: {
+        url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+        attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a> contributors'
+      }
+    },
+    hybrid: {
+      dark: {
+        url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        attribution: '&copy; <a href="https://www.esri.com/">Esri</a> World Imagery',
+        overlay: "https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png"
+      },
+      light: {
+        url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        attribution: '&copy; <a href="https://www.esri.com/">Esri</a> World Imagery',
+        overlay: "https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png"
+      }
+    }
+  };
+  
+  // Get current tile configuration
+  const getCurrentTileConfig = () => {
+    return mapLayers[mapLayer][theme];
   };
 
   // Color coding for different types
@@ -142,10 +189,18 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
         ref={mapRef}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url={tileUrls[theme]}
-          key={theme}
+          attribution={getCurrentTileConfig().attribution}
+          url={getCurrentTileConfig().url}
+          key={`${mapLayer}-${theme}`}
         />
+        
+        {/* Overlay for hybrid mode */}
+        {mapLayer === 'hybrid' && getCurrentTileConfig().overlay && (
+          <TileLayer
+            url={getCurrentTileConfig().overlay}
+            key={`overlay-${theme}`}
+          />
+        )}
         
         {geospatialData && geospatialData.features && (
           <>
@@ -237,6 +292,55 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
 
       <div className="map-info">
         <p>Last update: <span className="update-time">8 seconds ago</span></p>
+      </div>
+
+      {/* Layer Switcher */}
+      <div className="layer-switcher">
+        <button 
+          className="layer-button"
+          onClick={() => setShowLayerMenu(!showLayerMenu)}
+          title="Change map layer"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+        </button>
+        
+        {showLayerMenu && (
+          <div className="layer-menu">
+            <h4>Map Layers</h4>
+            <button 
+              className={`layer-option ${mapLayer === 'street' ? 'active' : ''}`}
+              onClick={() => { setMapLayer('street'); setShowLayerMenu(false); }}
+            >
+              <div className="layer-preview street-preview"></div>
+              <span>Street</span>
+            </button>
+            <button 
+              className={`layer-option ${mapLayer === 'satellite' ? 'active' : ''}`}
+              onClick={() => { setMapLayer('satellite'); setShowLayerMenu(false); }}
+            >
+              <div className="layer-preview satellite-preview"></div>
+              <span>Satellite</span>
+            </button>
+            <button 
+              className={`layer-option ${mapLayer === 'terrain' ? 'active' : ''}`}
+              onClick={() => { setMapLayer('terrain'); setShowLayerMenu(false); }}
+            >
+              <div className="layer-preview terrain-preview"></div>
+              <span>Terrain</span>
+            </button>
+            <button 
+              className={`layer-option ${mapLayer === 'hybrid' ? 'active' : ''}`}
+              onClick={() => { setMapLayer('hybrid'); setShowLayerMenu(false); }}
+            >
+              <div className="layer-preview hybrid-preview"></div>
+              <span>Hybrid</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Fullscreen Toggle Button */}
