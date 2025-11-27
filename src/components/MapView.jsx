@@ -1,8 +1,14 @@
-import React, { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, useMap } from 'react-leaflet';
+import React, { useEffect, useRef, useState } from 'react';
+import { MapContainer, TileLayer, Marker, CircleMarker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import axios from 'axios';
+import { getApiUrl } from '../config';
 import { useTheme } from '../context/ThemeContext';
+import { createCustomIcon, getCategoryColor } from './FacilityIcons';
+import LayerControl from './LayerControl';
+import BoundaryLayer from './BoundaryLayer';
 import './MapView.css';
+import './BoundaryLayer.css';
 
 // Fix Leaflet default marker icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -29,10 +35,26 @@ function MapUpdater({ selectedFeature }) {
 const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature, loading }) => {
   const mapRef = useRef();
   const { theme } = useTheme();
-  const [isFullscreen, setIsFullscreen] = React.useState(false);
-  const [mapLayer, setMapLayer] = React.useState('street'); // street, satellite, terrain, hybrid
-  const [showLayerMenu, setShowLayerMenu] = React.useState(false);
-  const containerRef = React.useRef(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [mapLayer, setMapLayer] = useState('street');
+  const [showLayerMenu, setShowLayerMenu] = useState(false);
+  const containerRef = useRef(null);
+  
+  // Multi-layer support
+  const [facilities, setFacilities] = useState([]);
+  const [showBoundaries, setShowBoundaries] = useState(true);
+  const [visibleLayers, setVisibleLayers] = useState({
+    'health': true,
+    'school-primary': true,
+    'school-secondary': true,
+    'school-tertiary': true,
+    'church': true,
+    'police': true,
+    'shop': true,
+    'office': true,
+    'boundaries': true
+  });
+  const [layerCounts, setLayerCounts] = useState({});
   
   // Harare center coordinates
   const center = [-17.8252, 31.0492];
@@ -54,7 +76,7 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
   };
   
   // Listen for fullscreen changes
-  React.useEffect(() => {
+  useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
     };
@@ -62,6 +84,43 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
+  
+  // Fetch facilities data
+  useEffect(() => {
+    const fetchFacilities = async () => {
+      try {
+        const response = await axios.get(getApiUrl(`api/facilities?year=${selectedYear}`));
+        if (response.data) {
+          setFacilities(response.data);
+          
+          // Calculate counts for layer control
+          const counts = {
+            health: response.data.filter(f => f.category === 'health').length,
+            schoolPrimary: response.data.filter(f => f.category === 'school' && f.sub_type === 'primary').length,
+            schoolSecondary: response.data.filter(f => f.category === 'school' && f.sub_type === 'secondary').length,
+            schoolTertiary: response.data.filter(f => f.category === 'school' && f.sub_type === 'tertiary').length,
+            church: response.data.filter(f => f.category === 'church').length,
+            police: response.data.filter(f => f.category === 'police').length,
+            shop: response.data.filter(f => f.category === 'shop').length,
+            office: response.data.filter(f => f.category === 'office').length
+          };
+          setLayerCounts(counts);
+        }
+      } catch (error) {
+        console.error('Error fetching facilities:', error);
+      }
+    };
+    
+    fetchFacilities();
+  }, [selectedYear]);
+  
+  // Toggle layer visibility
+  const handleToggleLayer = (layerId, visible) => {
+    setVisibleLayers(prev => ({
+      ...prev,
+      [layerId]: visible !== undefined ? visible : !prev[layerId]
+    }));
+  };
   
   // Map layer configurations
   const mapLayers = {
@@ -234,30 +293,39 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
                   }}
                 >
                   <Popup>
-                    <div className="popup-content">
-                      <h3>{props.name}</h3>
-                      <p className="popup-type">{props.type}</p>
-                      <div className="popup-stats">
-                        <div className="popup-stat">
-                          <span className="stat-label">Youth (≤24 years)</span>
-                          <span className="stat-value">{props.youth_count || 0}</span>
-                        </div>
-                        <div className="popup-stat">
-                          <span className="stat-label">Total Members</span>
-                          <span className="stat-value">{props.total_members || 0}</span>
-                        </div>
-                        <div className="popup-stat">
-                          <span className="stat-label">Youth Percentage</span>
-                          <span className="stat-value">
-                            {props.total_members ? 
-                              Math.round((props.youth_count / props.total_members) * 100) : 0}%
-                          </span>
-                        </div>
-                      </div>
-                      {props.address && (
-                        <p className="popup-address">📍 {props.address}</p>
-                      )}
+                  <div className="popup-content">
+                  <h3>{props.name}</h3>
+                  <p className="popup-type">{props.type}</p>
+                  {props.district && (
+                    <p className="popup-district">📍 District: {props.district}</p>
+                  )}
+                  <div className="popup-stats">
+                    <div className="popup-stat">
+                      <span className="stat-label">Youth (≤24 years)</span>
+                      <span className="stat-value">{props.youth_count || 0}</span>
                     </div>
+                    <div className="popup-stat">
+                      <span className="stat-label">Total Members</span>
+                      <span className="stat-value">{props.total_members || 0}</span>
+                    </div>
+                    <div className="popup-stat">
+                      <span className="stat-label">Youth Percentage</span>
+                      <span className="stat-value">
+                        {props.total_members ? 
+                          Math.round((props.youth_count / props.total_members) * 100) : 0}%
+                      </span>
+                    </div>
+                  </div>
+                  {props.address && (
+                    <p className="popup-address">📍 {props.address}</p>
+                  )}
+                  {props.description && (
+                    <div className="popup-description">
+                      <strong>Description:</strong>
+                      <p>{props.description}</p>
+                    </div>
+                  )}
+                </div>
                   </Popup>
                 </CircleMarker>
               );
@@ -265,7 +333,67 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
             <MapUpdater selectedFeature={selectedFeature} />
           </>
         )}
+        
+        {/* Facility Markers */}
+        {facilities.map((facility, idx) => {
+          const layerId = facility.category === 'school' 
+            ? `school-${facility.sub_type}` 
+            : facility.category;
+          
+          if (!visibleLayers[layerId]) return null;
+          
+          const lat = facility.location?.coordinates?.[1] || facility.latitude;
+          const lon = facility.location?.coordinates?.[0] || facility.longitude;
+          
+          if (!lat || !lon) return null;
+          
+          const color = getCategoryColor(facility.category, facility.sub_type);
+          const icon = createCustomIcon(facility.category, facility.sub_type, color, 'medium');
+          
+          return (
+            <Marker
+              key={`facility-${idx}`}
+              position={[lat, lon]}
+              icon={icon}
+            >
+              <Popup>
+                <div className="popup-content">
+                  <h3>{facility.name}</h3>
+                  <p className="popup-type">
+                    {facility.category === 'school' 
+                      ? `${facility.sub_type} School` 
+                      : facility.category}
+                  </p>
+                  {facility.address && (
+                    <p className="popup-address">📍 {facility.address}</p>
+                  )}
+                  {facility.additional_info && (
+                    <div className="popup-stats">
+                      {Object.entries(facility.additional_info).map(([key, value]) => (
+                        <div key={key} className="popup-stat">
+                          <span className="stat-label">{key}</span>
+                          <span className="stat-value">{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
+        {/* District Boundaries */}
+        {visibleLayers['boundaries'] && (
+          <BoundaryLayer selectedYear={selectedYear} />
+        )}
       </MapContainer>
+      
+      {/* Layer Control Panel */}
+      <LayerControl 
+        visibleLayers={visibleLayers}
+        onToggleLayer={handleToggleLayer}
+        layerCounts={layerCounts}
+      />
       
       <div className="map-legend">
         <h4>Health Decision-Making Platforms</h4>

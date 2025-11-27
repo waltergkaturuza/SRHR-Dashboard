@@ -6,9 +6,32 @@ import './UploadModal.css';
 const UploadModal = ({ onClose, onUploadSuccess }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState(null); // 'success', 'error', or null
+  const [uploadStatus, setUploadStatus] = useState(null);
   const [message, setMessage] = useState('');
   const [dragActive, setDragActive] = useState(false);
+  
+  // Upload metadata
+  const [uploadMetadata, setUploadMetadata] = useState({
+    category: 'health',
+    year: new Date().getFullYear(),
+    district: '',
+    autoDetect: true
+  });
+
+  const categories = [
+    { value: 'health', label: '🏥 Health Platform' },
+    { value: 'school', label: '🎓 School' },
+    { value: 'church', label: '⛪ Church' },
+    { value: 'police', label: '🚔 Police Station' },
+    { value: 'shop', label: '🏪 Shop/Market' },
+    { value: 'office', label: '🏢 Government Office' }
+  ];
+
+  const districts = [
+    'Mbare', 'Borrowdale', 'Harare Central', 'Glen View', 'Highfield',
+    'Avondale', 'Hatfield', 'Dzivarasekwa', 'Mufakose', 'Southerton',
+    'Mount Pleasant', 'Chitungwiza'
+  ];
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -50,6 +73,11 @@ const UploadModal = ({ onClose, onUploadSuccess }) => {
 
     const formData = new FormData();
     formData.append('file', selectedFile);
+    formData.append('year', uploadMetadata.year);
+    formData.append('category', uploadMetadata.category);
+    if (uploadMetadata.district) {
+      formData.append('district', uploadMetadata.district);
+    }
 
     setUploading(true);
     setUploadStatus(null);
@@ -63,9 +91,8 @@ const UploadModal = ({ onClose, onUploadSuccess }) => {
       });
 
       setUploadStatus('success');
-      setMessage(`Successfully uploaded ${response.data.features} features from ${response.data.filename}`);
+      setMessage(`Successfully uploaded ${response.data.features} ${uploadMetadata.category} features from ${response.data.filename} for year ${uploadMetadata.year}`);
       
-      // Wait a bit before closing so user can see success message
       setTimeout(() => {
         onUploadSuccess();
       }, 2000);
@@ -111,6 +138,71 @@ const UploadModal = ({ onClose, onUploadSuccess }) => {
             <div>
               <h3>Supported Formats</h3>
               <p>GeoJSON (.geojson, .json), Shapefile (.shp, .zip)</p>
+            </div>
+          </div>
+
+          {/* Upload Metadata */}
+          <div className="upload-metadata">
+            <h3>Upload Settings</h3>
+            
+            <div className="metadata-row">
+              <div className="metadata-field">
+                <label>Facility Category *</label>
+                <select
+                  value={uploadMetadata.category}
+                  onChange={(e) => setUploadMetadata({...uploadMetadata, category: e.target.value})}
+                  className="metadata-select"
+                >
+                  {categories.map(cat => (
+                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                  ))}
+                </select>
+                <small>What type of facilities are in this file?</small>
+              </div>
+
+              <div className="metadata-field">
+                <label>Year *</label>
+                <input
+                  type="number"
+                  min="2000"
+                  max="2100"
+                  value={uploadMetadata.year}
+                  onChange={(e) => setUploadMetadata({...uploadMetadata, year: parseInt(e.target.value)})}
+                  className="metadata-input"
+                />
+                <small>Which year is this data for?</small>
+              </div>
+            </div>
+
+            <div className="metadata-field">
+              <label>District (Optional)</label>
+              <select
+                value={uploadMetadata.district}
+                onChange={(e) => setUploadMetadata({...uploadMetadata, district: e.target.value})}
+                className="metadata-select"
+              >
+                <option value="">Auto-detect from data</option>
+                {districts.map(dist => (
+                  <option key={dist} value={dist}>{dist}</option>
+                ))}
+              </select>
+              <small>If all facilities are in one district, select it here</small>
+            </div>
+
+            <div className="metadata-note">
+              <strong>Note:</strong> The GeoJSON file should include these properties for each feature:
+              <ul>
+                <li><code>name</code> - Facility name (required)</li>
+                <li><code>type</code> or <code>sub_type</code> - Specific type (e.g., "primary" for schools)</li>
+                <li><code>description</code> - Additional notes (optional)</li>
+                <li><code>district</code> - District name (optional, can set above)</li>
+                {uploadMetadata.category === 'health' && (
+                  <>
+                    <li><code>youth_count</code> - Number of youth participants</li>
+                    <li><code>total_members</code> - Total committee members</li>
+                  </>
+                )}
+              </ul>
             </div>
           </div>
 

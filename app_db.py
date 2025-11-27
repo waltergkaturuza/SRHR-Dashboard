@@ -299,6 +299,179 @@ def refresh_trends():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/boundaries', methods=['GET'])
+def get_boundaries():
+    """Get district boundaries"""
+    try:
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        if 'district_boundaries' not in inspector.get_table_names():
+            return jsonify([])
+        
+        query = db.text("""
+            SELECT 
+                id,
+                name,
+                code,
+                population,
+                area_km2,
+                ST_AsGeoJSON(boundary) as boundary_geojson,
+                ST_X(center_point) as center_lon,
+                ST_Y(center_point) as center_lat
+            FROM district_boundaries
+            ORDER BY name
+        """)
+        
+        result = db.session.execute(query)
+        
+        boundaries_list = []
+        for row in result:
+            import json
+            boundaries_list.append({
+                'id': row.id,
+                'name': row.name,
+                'code': row.code,
+                'population': row.population,
+                'area_km2': float(row.area_km2) if row.area_km2 else 0,
+                'boundary': json.loads(row.boundary_geojson),
+                'center': [row.center_lon, row.center_lat]
+            })
+        
+        return jsonify(boundaries_list)
+    except Exception as e:
+        print(f"Error fetching boundaries: {str(e)}")
+        return jsonify([])
+
+
+@app.route('/api/district/<district_name>/facilities', methods=['GET'])
+def get_district_facilities(district_name):
+    """Get all facilities within a specific district"""
+    year = request.args.get('year', type=int, default=2024)
+    
+    try:
+        # Get health platforms in district
+        health_query = db.text("""
+            SELECT id, name, type as category, youth_count, total_members
+            FROM health_platforms
+            WHERE district = :district AND year = :year
+        """)
+        
+        health_result = db.session.execute(health_query, {'district': district_name, 'year': year})
+        
+        # Get other facilities in district
+        facilities_query = db.text("""
+            SELECT id, name, category, sub_type
+            FROM facilities
+            WHERE district = :district AND year = :year
+        """)
+        
+        facilities_result = db.session.execute(facilities_query, {'district': district_name, 'year': year})
+        
+        summary = {
+            'district': district_name,
+            'year': year,
+            'health_platforms': [dict(row._mapping) for row in health_result],
+            'facilities': [dict(row._mapping) for row in facilities_result],
+            'counts': {}
+        }
+        
+        # Count by category
+        count_query = db.text("""
+            SELECT category, sub_type, COUNT(*) as count
+            FROM facilities
+            WHERE district = :district AND year = :year
+            GROUP BY category, sub_type
+        """)
+        
+        count_result = db.session.execute(count_query, {'district': district_name, 'year': year})
+        for row in count_result:
+            key = f"{row.category}_{row.sub_type}" if row.sub_type else row.category
+            summary['counts'][key] = row.count
+        
+        return jsonify(summary)
+    except Exception as e:
+        print(f"Error fetching district facilities: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/facilities', methods=['GET'])
+def get_facilities():
+    """Get all community facilities (schools, churches, police, shops, offices)"""
+    year = request.args.get('year', type=int)
+    category = request.args.get('category')  # Optional filter by category
+    
+    if not year:
+        years = db.session.query(db.func.max(db.text('year'))).select_from(db.text('facilities')).scalar()
+        year = years if years else 2024
+    
+    try:
+        # Check if facilities table exists
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        if 'facilities' not in inspector.get_table_names():
+            # Return empty array if table doesn't exist yet
+            return jsonify([])
+        
+        query = db.text("""
+            SELECT 
+                id,
+                name,
+                category,
+                sub_type,
+                year,
+                address,
+                ST_X(location) as longitude,
+                ST_Y(location) as latitude,
+                additional_info
+            FROM facilities
+            WHERE year = :year
+        """)
+        
+        params = {'year': year}
+        
+        if category:
+            query = db.text("""
+                SELECT 
+                    id,
+                    name,
+                    category,
+                    sub_type,
+                    year,
+                    address,
+                    ST_X(location) as longitude,
+                    ST_Y(location) as latitude,
+                    additional_info
+                FROM facilities
+                WHERE year = :year AND category = :category
+            """)
+            params['category'] = category
+        
+        result = db.session.execute(query, params)
+        
+        facilities_list = []
+        for row in result:
+            facilities_list.append({
+                'id': row.id,
+                'name': row.name,
+                'category': row.category,
+                'sub_type': row.sub_type,
+                'year': row.year,
+                'address': row.address,
+                'location': {
+                    'coordinates': [row.longitude, row.latitude]
+                },
+                'longitude': row.longitude,
+                'latitude': row.latitude,
+                'additional_info': row.additional_info
+            })
+        
+        return jsonify(facilities_list)
+    except Exception as e:
+        # Return empty array if error (table might not exist yet)
+        print(f"Error fetching facilities: {str(e)}")
+        return jsonify([])
+
+
 # Database initialization commands
 @app.cli.command('init-db')
 def init_db():

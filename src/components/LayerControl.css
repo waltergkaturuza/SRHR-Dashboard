@@ -1,0 +1,230 @@
+.layer-control-panel {
+  position: absolute;
+  top: 5rem;
+  right: 1rem;
+  z-index: 1001;
+  background-color: var(--bg-primary);
+  border: 2px solid var(--border-hover);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px var(--shadow);
+  width: 240px;
+  backdrop-filter: blur(10px);
+}
+
+.layer-control-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.layer-control-header h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.toggle-expand {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--accent-primary);
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  transition: all 0.2s;
+}
+
+.toggle-expand:hover {
+  background-color: var(--accent-primary);
+  color: var(--bg-primary);
+}
+
+.layer-control-content {
+  padding: 0.75rem;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.layer-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.btn-layer-action {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-layer-action:hover {
+  background-color: var(--accent-bg);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.layer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.layer-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.6rem;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.layer-item:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-hover);
+}
+
+.layer-item.active {
+  border-color: var(--accent-primary);
+  background-color: var(--accent-bg);
+}
+
+.layer-item.inactive {
+  opacity: 0.6;
+}
+
+.layer-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.layer-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  flex-shrink: 0;
+}
+
+.layer-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.layer-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.layer-count {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Toggle Switch */
+.layer-toggle {
+  flex-shrink: 0;
+}
+
+.toggle-switch {
+  width: 40px;
+  height: 22px;
+  background-color: var(--bg-tertiary);
+  border: 2px solid var(--border-color);
+  border-radius: 11px;
+  position: relative;
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.toggle-switch.on {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.toggle-knob {
+  width: 16px;
+  height: 16px;
+  background-color: white;
+  border-radius: 50%;
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  transition: transform 0.3s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.toggle-switch.on .toggle-knob {
+  transform: translateX(18px);
+}
+
+/* Custom marker styles */
+.custom-marker {
+  background: none !important;
+  border: none !important;
+}
+
+.custom-marker svg {
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .layer-control-panel {
+    top: 3.5rem;
+    right: 0.5rem;
+    min-width: 240px;
+    max-width: 280px;
+  }
+
+  .layer-control-header h3 {
+    font-size: 0.85rem;
+  }
+
+  .layer-name {
+    font-size: 0.8rem;
+  }
+
+  .layer-count {
+    font-size: 0.65rem;
+  }
+
+  .layer-icon {
+    width: 28px;
+    height: 28px;
+  }
+}
+

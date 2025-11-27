@@ -428,7 +428,8 @@
 }
 
 .form-group input,
-.form-group select {
+.form-group select,
+.form-group textarea {
   padding: 0.75rem;
   background-color: var(--bg-primary);
   border: 1px solid var(--border-color);
@@ -436,13 +437,29 @@
   color: var(--text-primary);
   font-size: 0.875rem;
   transition: all 0.2s;
+  font-family: inherit;
 }
 
 .form-group input:focus,
-.form-group select:focus {
+.form-group select:focus,
+.form-group textarea:focus {
   outline: none;
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 3px var(--accent-bg);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.5;
+}
+
+.category-select-large {
+  font-size: 1rem !important;
+  font-weight: 600;
+  padding: 1rem !important;
+  background-color: var(--accent-bg) !important;
+  border: 2px solid var(--accent-primary) !important;
 }
 
 .form-note {

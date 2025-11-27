@@ -115,6 +115,38 @@
   color: var(--text-secondary);
 }
 
+.popup-district {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.8rem;
+  color: var(--accent-primary);
+  font-weight: 600;
+  background-color: var(--accent-bg);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.popup-description {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-hover);
+}
+
+.popup-description strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--accent-primary);
+}
+
+.popup-description p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  font-style: italic;
+}
+
 /* Map Legend */
 .map-legend {
   position: absolute;

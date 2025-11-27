@@ -6,6 +6,7 @@ import './AdminDashboard.css';
 
 const AdminDashboard = () => {
   const [platforms, setPlatforms] = useState([]);
+  const [facilities, setFacilities] = useState([]);
   const [filteredPlatforms, setFilteredPlatforms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
@@ -14,17 +15,22 @@ const AdminDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterYear, setFilterYear] = useState('all');
   const [filterType, setFilterType] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('health'); // health, school, church, police, shop, office
   const [availableYears, setAvailableYears] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: 'year', direction: 'desc' });
 
   // New platform form
   const [newPlatform, setNewPlatform] = useState({
     name: '',
+    category: 'health',
     type: 'Youth Committee',
+    sub_type: 'primary',
     youth_count: 0,
     total_members: 0,
     year: new Date().getFullYear(),
     address: '',
+    description: '',
+    district: '',
     latitude: -17.8252,
     longitude: 31.0492
   });
@@ -40,10 +46,29 @@ const AdminDashboard = () => {
     'Advisory Board'
   ];
 
+  const categories = [
+    { value: 'health', label: '🏥 Health Platform', subTypes: platformTypes },
+    { value: 'school', label: '🎓 School', subTypes: ['primary', 'secondary', 'tertiary'] },
+    { value: 'church', label: '⛪ Church', subTypes: ['catholic', 'pentecostal', 'methodist', 'other'] },
+    { value: 'police', label: '🚔 Police Station', subTypes: ['main', 'branch', 'post'] },
+    { value: 'shop', label: '🏪 Shop/Market', subTypes: ['market', 'mall', 'shopping_center', 'store'] },
+    { value: 'office', label: '🏢 Government Office', subTypes: ['government', 'municipal', 'ministry', 'district'] }
+  ];
+
+  const districts = [
+    'Mbare', 'Borrowdale', 'Harare Central', 'Glen View', 'Highfield', 
+    'Avondale', 'Hatfield', 'Dzivarasekwa', 'Mufakose', 'Southerton', 
+    'Mount Pleasant', 'Chitungwiza'
+  ];
+
   useEffect(() => {
-    fetchAllPlatforms();
+    if (filterCategory === 'health') {
+      fetchAllPlatforms();
+    } else {
+      fetchFacilities();
+    }
     fetchYears();
-  }, []);
+  }, [filterCategory]);
 
   useEffect(() => {
     filterAndSortPlatforms();
@@ -78,6 +103,30 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchFacilities = async () => {
+    setLoading(true);
+    try {
+      const yearsResponse = await axios.get(getApiUrl('api/years'));
+      const years = yearsResponse.data.years || [];
+      
+      const allFacilities = [];
+      for (const year of years) {
+        const response = await axios.get(getApiUrl(`api/facilities?year=${year}&category=${filterCategory}`));
+        if (response.data && Array.isArray(response.data)) {
+          allFacilities.push(...response.data);
+        }
+      }
+      
+      setFacilities(allFacilities);
+      setPlatforms(allFacilities);
+    } catch (error) {
+      console.error('Error fetching facilities:', error);
+      setPlatforms([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   const fetchYears = async () => {
     try {
       const response = await axios.get(getApiUrl('api/years'));
@@ -251,11 +300,24 @@ const AdminDashboard = () => {
 
       <div className="admin-toolbar">
         <div className="toolbar-left">
+          <select 
+            className="filter-select category-select"
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+          >
+            <option value="health">🏥 Health Platforms</option>
+            <option value="school">🎓 Schools</option>
+            <option value="church">⛪ Churches</option>
+            <option value="police">🚔 Police Stations</option>
+            <option value="shop">🏪 Shops & Markets</option>
+            <option value="office">🏢 Government Offices</option>
+          </select>
+          
           <div className="search-box">
             <Search size={18} />
             <input
               type="text"
-              placeholder="Search platforms..."
+              placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -272,16 +334,18 @@ const AdminDashboard = () => {
             ))}
           </select>
 
-          <select 
-            className="filter-select"
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-          >
-            <option value="all">All Types</option>
-            {platformTypes.map(type => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
+          {filterCategory === 'health' && (
+            <select 
+              className="filter-select"
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+            >
+              <option value="all">All Types</option>
+              {platformTypes.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div className="toolbar-right">
@@ -489,26 +553,71 @@ const AdminDashboard = () => {
             </div>
 
             <form className="add-form" onSubmit={handleAddPlatform}>
+              {/* Category Selection */}
+              <div className="form-group">
+                <label>Facility Category *</label>
+                <select
+                  value={newPlatform.category}
+                  onChange={(e) => {
+                    const category = e.target.value;
+                    const categoryConfig = categories.find(c => c.value === category);
+                    setNewPlatform({
+                      ...newPlatform, 
+                      category,
+                      type: categoryConfig?.subTypes[0] || '',
+                      sub_type: categoryConfig?.subTypes[0] || ''
+                    });
+                  }}
+                  className="category-select-large"
+                >
+                  {categories.map(cat => (
+                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="form-row">
                 <div className="form-group">
-                  <label>Platform Name *</label>
+                  <label>Name *</label>
                   <input
                     type="text"
                     required
                     value={newPlatform.name}
                     onChange={(e) => setNewPlatform({...newPlatform, name: e.target.value})}
-                    placeholder="e.g., Harare Central Health Office"
+                    placeholder={`e.g., ${newPlatform.category === 'school' ? 'Avondale Primary School' : 
+                                         newPlatform.category === 'church' ? 'St Mary\'s Cathedral' :
+                                         newPlatform.category === 'police' ? 'Mbare Police Station' :
+                                         'Facility Name'}`}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label>Type *</label>
+                  <label>Type/Sub-Category *</label>
                   <select
-                    value={newPlatform.type}
-                    onChange={(e) => setNewPlatform({...newPlatform, type: e.target.value})}
+                    value={newPlatform.category === 'health' ? newPlatform.type : newPlatform.sub_type}
+                    onChange={(e) => setNewPlatform({
+                      ...newPlatform, 
+                      [newPlatform.category === 'health' ? 'type' : 'sub_type']: e.target.value
+                    })}
                   >
-                    {platformTypes.map(type => (
-                      <option key={type} value={type}>{type}</option>
+                    {(categories.find(c => c.value === newPlatform.category)?.subTypes || []).map(type => (
+                      <option key={type} value={type}>
+                        {type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ')}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>District *</label>
+                  <select
+                    value={newPlatform.district}
+                    onChange={(e) => setNewPlatform({...newPlatform, district: e.target.value})}
+                    required
+                  >
+                    <option value="">Select District</option>
+                    {districts.map(dist => (
+                      <option key={dist} value={dist}>{dist}</option>
                     ))}
                   </select>
                 </div>
@@ -557,6 +666,17 @@ const AdminDashboard = () => {
                   value={newPlatform.address}
                   onChange={(e) => setNewPlatform({...newPlatform, address: e.target.value})}
                   placeholder="e.g., Corner 5th Street & Central Avenue"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Description / Additional Notes</label>
+                <textarea
+                  rows="3"
+                  value={newPlatform.description}
+                  onChange={(e) => setNewPlatform({...newPlatform, description: e.target.value})}
+                  placeholder="Add any additional information, services offered, operating hours, contact details, etc."
+                  className="form-textarea"
                 />
               </div>
 
