@@ -55,11 +55,84 @@ const AdminDashboard = () => {
     { value: 'office', label: '🏢 Government Office', subTypes: ['government', 'municipal', 'ministry', 'district'] }
   ];
 
-  const districts = [
-    'Mbare', 'Borrowdale', 'Harare Central', 'Glen View', 'Highfield', 
-    'Avondale', 'Hatfield', 'Dzivarasekwa', 'Mufakose', 'Southerton', 
-    'Mount Pleasant', 'Chitungwiza'
-  ];
+  const suburbs = [
+    'Alexandra Park',
+    'Avenues',
+    'Avondale',
+    'Avondale West',
+    'Avonlea',
+    'Belgravia',
+    'Belvedere',
+    'Bluff Hill',
+    'Borrowdale',
+    'Borrowdale Brooke',
+    'Borrowdale West',
+    'Braeside',
+    'Budiriro',
+    'Chisipite',
+    'Chizhanje',
+    'Colne Valley',
+    'Colray',
+    'Cranborne',
+    'Dawn Hill',
+    'Donnybrook',
+    'Dzivarasekwa',
+    'Eastlea',
+    'Emerald Hill',
+    'Epworth',
+    'Glen Lorne',
+    'Glen Norah',
+    'Glen View',
+    'Glenwood',
+    'Greendale',
+    'Green Grove',
+    'Greystone Park',
+    'Gunhill',
+    'Hatcliffe',
+    'Hatfield',
+    'Helensvale',
+    'Highfield',
+    'Highlands',
+    'Hillside',
+    'Hogerty Hill',
+    'Hopley',
+    'Kambuzuma',
+    'Kuwadzana',
+    'Lewisam',
+    'Loan-crest/Lochinvar',
+    'Mabelreign',
+    'Mabvuku',
+    'Mandara',
+    'Marlborough',
+    'Mbare',
+    'Milton Park',
+    'Monavale',
+    'Mount Pleasant',
+    'Msasa Park',
+    'Mufakose',
+    'Newlands',
+    'Northwood',
+    'Parktown',
+    'Pomona',
+    'Prospect',
+    'Queensdale',
+    'Quinnington',
+    'Rhodesville',
+    'Rietfontein',
+    'Rolf Valley',
+    'Saturday Retreat',
+    'Shawasha Hills',
+    'Southerton',
+    'Southlea Park',
+    'St. Mary\'s',
+    'Strathaven',
+    'Tafara',
+    'Vainona',
+    'Warren Park',
+    'Waterfalls',
+    'Westgate',
+    'Westlea'
+  ].sort(); // Alphabetically sorted for easier selection
 
   useEffect(() => {
     if (filterCategory === 'health') {
@@ -609,15 +682,15 @@ const AdminDashboard = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>District *</label>
+                  <label>Suburb/Location *</label>
                   <select
                     value={newPlatform.district}
                     onChange={(e) => setNewPlatform({...newPlatform, district: e.target.value})}
                     required
                   >
-                    <option value="">Select District</option>
-                    {districts.map(dist => (
-                      <option key={dist} value={dist}>{dist}</option>
+                    <option value="">Select Suburb/Location</option>
+                    {suburbs.map(suburb => (
+                      <option key={suburb} value={suburb}>{suburb}</option>
                     ))}
                   </select>
                 </div>

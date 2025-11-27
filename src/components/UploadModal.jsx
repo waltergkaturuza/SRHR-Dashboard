@@ -27,11 +27,24 @@ const UploadModal = ({ onClose, onUploadSuccess }) => {
     { value: 'office', label: '🏢 Government Office' }
   ];
 
-  const districts = [
-    'Mbare', 'Borrowdale', 'Harare Central', 'Glen View', 'Highfield',
-    'Avondale', 'Hatfield', 'Dzivarasekwa', 'Mufakose', 'Southerton',
-    'Mount Pleasant', 'Chitungwiza'
-  ];
+  const suburbs = [
+    'Alexandra Park', 'Avenues', 'Avondale', 'Avondale West', 'Avonlea',
+    'Belgravia', 'Belvedere', 'Bluff Hill', 'Borrowdale', 'Borrowdale Brooke',
+    'Borrowdale West', 'Braeside', 'Budiriro', 'Chisipite', 'Chizhanje',
+    'Colne Valley', 'Colray', 'Cranborne', 'Dawn Hill', 'Donnybrook',
+    'Dzivarasekwa', 'Eastlea', 'Emerald Hill', 'Epworth', 'Glen Lorne',
+    'Glen Norah', 'Glen View', 'Glenwood', 'Greendale', 'Green Grove',
+    'Greystone Park', 'Gunhill', 'Hatcliffe', 'Hatfield', 'Helensvale',
+    'Highfield', 'Highlands', 'Hillside', 'Hogerty Hill', 'Hopley',
+    'Kambuzuma', 'Kuwadzana', 'Lewisam', 'Loan-crest/Lochinvar',
+    'Mabelreign', 'Mabvuku', 'Mandara', 'Marlborough', 'Mbare',
+    'Milton Park', 'Monavale', 'Mount Pleasant', 'Msasa Park', 'Mufakose',
+    'Newlands', 'Northwood', 'Parktown', 'Pomona', 'Prospect',
+    'Queensdale', 'Quinnington', 'Rhodesville', 'Rietfontein', 'Rolf Valley',
+    'Saturday Retreat', 'Shawasha Hills', 'Southerton', 'Southlea Park',
+    'St. Mary\'s', 'Strathaven', 'Tafara', 'Vainona', 'Warren Park',
+    'Waterfalls', 'Westgate', 'Westlea'
+  ].sort();
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -175,18 +188,18 @@ const UploadModal = ({ onClose, onUploadSuccess }) => {
             </div>
 
             <div className="metadata-field">
-              <label>District (Optional)</label>
+              <label>Suburb/Location (Optional)</label>
               <select
                 value={uploadMetadata.district}
                 onChange={(e) => setUploadMetadata({...uploadMetadata, district: e.target.value})}
                 className="metadata-select"
               >
                 <option value="">Auto-detect from data</option>
-                {districts.map(dist => (
-                  <option key={dist} value={dist}>{dist}</option>
+                {suburbs.map(suburb => (
+                  <option key={suburb} value={suburb}>{suburb}</option>
                 ))}
               </select>
-              <small>If all facilities are in one district, select it here</small>
+              <small>If all facilities are in one suburb, select it here</small>
             </div>
 
             <div className="metadata-note">

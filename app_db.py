@@ -148,6 +148,8 @@ def upload_file():
     
     file = request.files['file']
     year = request.form.get('year', type=int)
+    category = request.form.get('category', 'health')
+    district = request.form.get('district', None)
     
     if not year:
         years = HealthPlatform.get_available_years()
@@ -173,7 +175,7 @@ def upload_file():
                 return jsonify({"error": "Invalid GeoJSON format. Must be a FeatureCollection"}), 400
             
             # Import data into database
-            feature_count = import_geojson_to_db(geojson_data, year)
+            feature_count = import_geojson_to_db(geojson_data, year, category, district)
             
         elif filename.endswith('.shp') or filename.endswith('.zip'):
             if filename.endswith('.zip'):
@@ -192,7 +194,7 @@ def upload_file():
             gdf = gpd.read_file(shp_path)
             geojson_data = json.loads(gdf.to_json())
             
-            feature_count = import_geojson_to_db(geojson_data, year)
+            feature_count = import_geojson_to_db(geojson_data, year, category, district)
             
             if filename.endswith('.zip'):
                 shutil.rmtree(extract_folder)
@@ -211,7 +213,7 @@ def upload_file():
         return jsonify({"error": f"Error processing file: {str(e)}"}), 500
 
 
-def import_geojson_to_db(geojson_data, year):
+def import_geojson_to_db(geojson_data, year, category='health', district=None):
     """Import GeoJSON data into database"""
     feature_count = 0
     
@@ -230,18 +232,49 @@ def import_geojson_to_db(geojson_data, year):
         lon, lat = coords[0], coords[1]
         wkt_point = f'POINT({lon} {lat})'
         
-        # Create new platform
-        platform = HealthPlatform(
-            name=props.get('name', 'Unknown'),
-            type=props.get('type', 'Other'),
-            youth_count=props.get('youth_count', 0),
-            total_members=props.get('total_members', 1),
-            year=props.get('year', year),
-            address=props.get('address'),
-            location=ST_GeomFromText(wkt_point, 4326)
-        )
+        # Determine which table to use
+        if category == 'health':
+            # Health platforms table
+            platform = HealthPlatform(
+                name=props.get('name', 'Unknown'),
+                type=props.get('type', 'Other'),
+                youth_count=props.get('youth_count', 0),
+                total_members=props.get('total_members', 1),
+                year=props.get('year', year),
+                address=props.get('address'),
+                description=props.get('description'),
+                district=props.get('district', district),
+                location=ST_GeomFromText(wkt_point, 4326)
+            )
+            db.session.add(platform)
+        else:
+            # Facilities table for schools, churches, police, shops, offices
+            from sqlalchemy import text, inspect
+            
+            # Check if facilities table exists
+            inspector = inspect(db.engine)
+            if 'facilities' in inspector.get_table_names():
+                # Insert into facilities table
+                insert_query = text("""
+                    INSERT INTO facilities 
+                    (name, category, sub_type, year, address, description, district, location)
+                    VALUES 
+                    (:name, :category, :sub_type, :year, :address, :description, :district, 
+                     ST_SetSRID(ST_MakePoint(:lon, :lat), 4326))
+                """)
+                
+                db.session.execute(insert_query, {
+                    'name': props.get('name', 'Unknown'),
+                    'category': category,
+                    'sub_type': props.get('sub_type') or props.get('type', ''),
+                    'year': props.get('year', year),
+                    'address': props.get('address'),
+                    'description': props.get('description'),
+                    'district': props.get('district', district),
+                    'lon': lon,
+                    'lat': lat
+                })
         
-        db.session.add(platform)
         feature_count += 1
     
     db.session.commit()
