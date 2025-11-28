@@ -20,6 +20,7 @@ const UploadModal = ({ onClose, onUploadSuccess }) => {
 
   const categories = [
     { value: 'health', label: '🏥 Health Platform' },
+    { value: 'clinic', label: '🏥 Health Clinic' },
     { value: 'school', label: '🎓 School' },
     { value: 'church', label: '⛪ Church' },
     { value: 'police', label: '🚔 Police Station' },

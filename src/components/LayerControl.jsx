@@ -25,6 +25,13 @@ const LayerControl = ({ visibleLayers, onToggleLayer, layerCounts }) => {
       count: layerCounts?.health || 0
     },
     {
+      id: 'clinic',
+      name: 'Clinics',
+      icon: Heart,
+      color: '#f48fb1',
+      count: layerCounts?.clinic || 0
+    },
+    {
       id: 'school-primary',
       name: 'Primary',
       icon: School,

@@ -35,24 +35,25 @@ const AdminDashboard = () => {
     longitude: 31.0492
   });
 
-  const platformTypes = [
-    'District Office',
-    'Youth Committee',
-    'Health Forum',
-    'Community Health Committee',
+  const healthPlatformTypes = [
+    'Advisory Board',
     'Clinic Committee',
+    'Community Health Committee',
     'Community Platform',
+    'District Office',
+    'Health Forum',
     'SRHR Forum',
-    'Advisory Board'
+    'Youth Committee'
   ];
 
   const categories = [
-    { value: 'health', label: '🏥 Health Platform', subTypes: platformTypes },
-    { value: 'school', label: '🎓 School', subTypes: ['primary', 'secondary', 'tertiary'] },
-    { value: 'church', label: '⛪ Church', subTypes: ['catholic', 'pentecostal', 'methodist', 'other'] },
-    { value: 'police', label: '🚔 Police Station', subTypes: ['main', 'branch', 'post'] },
-    { value: 'shop', label: '🏪 Shop/Market', subTypes: ['market', 'mall', 'shopping_center', 'store'] },
-    { value: 'office', label: '🏢 Government Office', subTypes: ['government', 'municipal', 'ministry', 'district'] }
+    { value: 'health', label: '🏥 Health Platform', subTypes: healthPlatformTypes },
+    { value: 'school', label: '🎓 School', subTypes: ['Primary', 'Secondary', 'Tertiary'] },
+    { value: 'church', label: '⛪ Church', subTypes: ['Catholic', 'Pentecostal', 'Methodist', 'Anglican', 'Baptist', 'Other'] },
+    { value: 'police', label: '🚔 Police Station', subTypes: ['Main Station', 'Branch Office', 'Police Post'] },
+    { value: 'shop', label: '🏪 Shop/Market', subTypes: ['Market', 'Shopping Mall', 'Shopping Center', 'Retail Store', 'Supermarket'] },
+    { value: 'office', label: '🏢 Government Office', subTypes: ['Municipal Office', 'Ministry', 'District Office', 'Provincial Office', 'Government Department'] },
+    { value: 'clinic', label: '🏥 Health Clinic', subTypes: ['Primary Clinic', 'Polyclinic', 'Health Center', 'Medical Center', 'Maternity Clinic'] }
   ];
 
   const suburbs = [
@@ -379,6 +380,7 @@ const AdminDashboard = () => {
             onChange={(e) => setFilterCategory(e.target.value)}
           >
             <option value="health">🏥 Health Platforms</option>
+            <option value="clinic">🏥 Health Clinics</option>
             <option value="school">🎓 Schools</option>
             <option value="church">⛪ Churches</option>
             <option value="police">🚔 Police Stations</option>
@@ -414,7 +416,7 @@ const AdminDashboard = () => {
               onChange={(e) => setFilterType(e.target.value)}
             >
               <option value="all">All Types</option>
-              {platformTypes.map(type => (
+              {healthPlatformTypes.map(type => (
                 <option key={type} value={type}>{type}</option>
               ))}
             </select>

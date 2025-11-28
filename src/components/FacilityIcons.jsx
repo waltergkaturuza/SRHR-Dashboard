@@ -29,6 +29,11 @@ const getIconHTML = (category, subType, color) => {
         <path d="M20 6h-3V4c0-1.1-.9-2-2-2H9c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zM9 4h6v2H9V4zm3 11h-2v2H8v-2H6v-2h2v-2h2v2h2v2z"/>
       </svg>
     `,
+    clinic: `
+      <svg viewBox="0 0 24 24" fill="${color}" stroke="white" stroke-width="1">
+        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 11h-4v4h-4v-4H6v-4h4V6h4v4h4v4z"/>
+      </svg>
+    `,
     school: `
       <svg viewBox="0 0 24 24" fill="${color}" stroke="white" stroke-width="0.5">
         <path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z"/>
@@ -77,6 +82,7 @@ const getIconHTML = (category, subType, color) => {
 export const getCategoryColor = (category, subType = '') => {
   const colors = {
     health: '#ff4444',
+    clinic: '#f48fb1',
     school: {
       primary: '#4caf50',
       secondary: '#2196f3',

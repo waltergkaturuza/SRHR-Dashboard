@@ -45,6 +45,7 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
   const [showBoundaries, setShowBoundaries] = useState(true);
   const [visibleLayers, setVisibleLayers] = useState({
     'health': true,
+    'clinic': true,
     'school-primary': true,
     'school-secondary': true,
     'school-tertiary': true,
@@ -96,6 +97,7 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
           // Calculate counts for layer control
           const counts = {
             health: response.data.filter(f => f.category === 'health').length,
+            clinic: response.data.filter(f => f.category === 'clinic').length,
             schoolPrimary: response.data.filter(f => f.category === 'school' && f.sub_type === 'primary').length,
             schoolSecondary: response.data.filter(f => f.category === 'school' && f.sub_type === 'secondary').length,
             schoolTertiary: response.data.filter(f => f.category === 'school' && f.sub_type === 'tertiary').length,
