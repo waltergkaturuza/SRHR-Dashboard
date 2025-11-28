@@ -332,6 +332,89 @@ def refresh_trends():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/admin/init-tables', methods=['POST'])
+def initialize_tables():
+    """Initialize facilities and boundaries tables"""
+    try:
+        results = []
+        
+        # Check and create facilities table
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        
+        if 'facilities' not in inspector.get_table_names():
+            results.append("Creating facilities table...")
+            db.session.execute(db.text("""
+                CREATE TABLE IF NOT EXISTS facilities (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    category VARCHAR(50) NOT NULL,
+                    sub_type VARCHAR(100),
+                    year INTEGER NOT NULL,
+                    address TEXT,
+                    description TEXT,
+                    district VARCHAR(100),
+                    location GEOMETRY(Point, 4326) NOT NULL,
+                    additional_info JSONB,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT valid_year CHECK (year >= 2000 AND year <= 2100),
+                    CONSTRAINT valid_category CHECK (category IN ('school', 'church', 'police', 'shop', 'office', 'health', 'clinic'))
+                );
+            """))
+            
+            db.session.execute(db.text("CREATE INDEX IF NOT EXISTS idx_facilities_category ON facilities(category);"))
+            db.session.execute(db.text("CREATE INDEX IF NOT EXISTS idx_facilities_year ON facilities(year);"))
+            db.session.execute(db.text("CREATE INDEX IF NOT EXISTS idx_facilities_location ON facilities USING GIST(location);"))
+            
+            db.session.commit()
+            results.append("✅ Facilities table created!")
+        else:
+            results.append("✅ Facilities table already exists")
+        
+        # Check and create boundaries table
+        if 'district_boundaries' not in inspector.get_table_names():
+            results.append("Creating district_boundaries table...")
+            db.session.execute(db.text("""
+                CREATE TABLE IF NOT EXISTS district_boundaries (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(100) NOT NULL UNIQUE,
+                    code VARCHAR(20),
+                    population INTEGER,
+                    area_km2 NUMERIC(10, 2),
+                    boundary GEOMETRY(MultiPolygon, 4326) NOT NULL,
+                    center_point GEOMETRY(Point, 4326),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """))
+            
+            db.session.execute(db.text("CREATE INDEX IF NOT EXISTS idx_district_boundaries_boundary ON district_boundaries USING GIST(boundary);"))
+            
+            db.session.commit()
+            results.append("✅ Boundaries table created!")
+        else:
+            results.append("✅ Boundaries table already exists")
+        
+        # Add description columns if missing
+        try:
+            db.session.execute(db.text("ALTER TABLE health_platforms ADD COLUMN IF NOT EXISTS description TEXT;"))
+            db.session.execute(db.text("ALTER TABLE health_platforms ADD COLUMN IF NOT EXISTS district VARCHAR(100);"))
+            db.session.commit()
+            results.append("✅ Health platforms table updated with description and district columns")
+        except:
+            pass
+        
+        return jsonify({
+            "message": "Database tables initialized successfully",
+            "details": results
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e), "message": "Error initializing tables"}), 500
+
+
 @app.route('/api/boundaries', methods=['GET'])
 def get_boundaries():
     """Get district boundaries"""
