@@ -305,20 +305,27 @@ const AdminDashboard = () => {
           },
           properties: {
             name: newPlatform.name,
-            type: newPlatform.type,
-            youth_count: parseInt(newPlatform.youth_count),
-            total_members: parseInt(newPlatform.total_members),
+            type: newPlatform.category === 'health' ? newPlatform.type : undefined,
+            sub_type: newPlatform.category !== 'health' ? newPlatform.sub_type : undefined,
+            youth_count: newPlatform.category === 'health' ? parseInt(newPlatform.youth_count) : undefined,
+            total_members: newPlatform.category === 'health' ? parseInt(newPlatform.total_members) : undefined,
             year: parseInt(newPlatform.year),
-            address: newPlatform.address
+            address: newPlatform.address,
+            description: newPlatform.description,
+            district: newPlatform.district
           }
         }]
       };
 
-      // Upload via API
+      // Upload via API with metadata
       const blob = new Blob([JSON.stringify(geojson)], { type: 'application/json' });
       const formData = new FormData();
       formData.append('file', blob, 'new_platform.geojson');
       formData.append('year', newPlatform.year);
+      formData.append('category', newPlatform.category);
+      if (newPlatform.district) {
+        formData.append('district', newPlatform.district);
+      }
 
       await axios.post(getApiUrl('api/upload'), formData);
       
