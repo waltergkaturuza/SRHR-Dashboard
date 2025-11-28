@@ -523,6 +523,30 @@ def seed_db():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+        
+        # Auto-create facilities table if it doesn't exist
+        try:
+            from sqlalchemy import inspect
+            inspector = inspect(db.engine)
+            if 'facilities' not in inspector.get_table_names():
+                print("Creating facilities table...")
+                # Execute schema
+                schema_path = os.path.join('database', 'schema_facilities.sql')
+                if os.path.exists(schema_path):
+                    with open(schema_path, 'r') as f:
+                        schema_sql = f.read()
+                        # Split and execute statements
+                        for statement in schema_sql.split(';'):
+                            if statement.strip():
+                                try:
+                                    db.session.execute(db.text(statement))
+                                except Exception as e:
+                                    print(f"Note: {e}")
+                        db.session.commit()
+                    print("✅ Facilities table created!")
+        except Exception as e:
+            print(f"Note: Could not auto-create facilities table: {e}")
+            print("You can create it manually later.")
     
     port = int(os.getenv('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=os.getenv('FLASK_ENV') == 'development')
