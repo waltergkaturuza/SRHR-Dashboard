@@ -6,7 +6,7 @@ echo.
 echo Starting Backend and Frontend...
 echo.
 
-start "SRHR Backend" cmd /k "venv\Scripts\activate.bat && python app.py"
+start "SRHR Backend" cmd /k "venv\Scripts\activate.bat && python app_db.py"
 timeout /t 3 /nobreak > nul
 start "SRHR Frontend" cmd /k "npm run dev"
 
