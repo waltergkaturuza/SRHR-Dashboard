@@ -46,3 +46,4 @@ COMMENT ON COLUMN facilities.category IS 'Main category: school, church, police,
 COMMENT ON COLUMN facilities.sub_type IS 'Sub-category: for schools (primary/secondary/tertiary), etc.';
 COMMENT ON COLUMN facilities.additional_info IS 'JSON field for flexible additional data like capacity, services, etc.';
 
+

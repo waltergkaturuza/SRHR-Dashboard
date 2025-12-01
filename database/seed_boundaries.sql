@@ -120,3 +120,4 @@ LEFT JOIN facilities f ON ST_Within(f.location, db.boundary)
 GROUP BY db.name
 ORDER BY db.name;
 
+

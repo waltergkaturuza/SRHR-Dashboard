@@ -77,3 +77,4 @@ COMMENT ON COLUMN health_platforms.district IS 'District/suburb name (e.g., Mbar
 COMMENT ON COLUMN facilities.description IS 'Additional notes and details about the facility';
 COMMENT ON COLUMN facilities.district IS 'District/suburb name';
 
+

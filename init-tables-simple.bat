@@ -19,3 +19,4 @@ echo Now re-upload your clinics and they will show on the map.
 echo.
 pause
 
+
