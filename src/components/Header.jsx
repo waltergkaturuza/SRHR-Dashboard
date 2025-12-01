@@ -1,12 +1,11 @@
 import React from 'react';
-import { Upload, Menu, Sun, Moon } from 'lucide-react';
+import { Upload, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import './Header.css';
 
 const Header = ({ selectedYear, onYearChange, onUploadClick }) => {
   const { theme, toggleTheme } = useTheme();
   const [years, setYears] = React.useState([2024]);
-  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 
   // Fetch available years from API
   React.useEffect(() => {
@@ -14,6 +13,7 @@ const Header = ({ selectedYear, onYearChange, onUploadClick }) => {
       fetch(getApiUrl('api/years'))
         .then(res => res.json())
         .then(data => {
+          console.log('Available years from API:', data.years);
           if (data.years && data.years.length > 0) {
             setYears(data.years);
           }
@@ -47,32 +47,18 @@ const Header = ({ selectedYear, onYearChange, onUploadClick }) => {
           <span>Upload Data</span>
         </button>
         
-        <div className="year-selector">
-          <button 
-            className="menu-toggle"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            <Menu size={20} />
-          </button>
-          <div className="year-dropdown">
-            <span className="year-label">Select a year</span>
-            <span className="year-value">{selectedYear}</span>
-            {isMenuOpen && (
-              <div className="year-menu">
-                {years.map(year => (
-                  <button
-                    key={year}
-                    className={`year-option ${year === selectedYear ? 'active' : ''}`}
-                    onClick={() => {
-                      onYearChange(year);
-                      setIsMenuOpen(false);
-                    }}
-                  >
-                    {year}
-                  </button>
-                ))}
-              </div>
-            )}
+        <div className="year-selector-inline">
+          <span className="year-label-inline">Year:</span>
+          <div className="year-chips-inline">
+            {years.sort((a, b) => a - b).map(year => (
+              <button
+                key={year}
+                className={`year-chip-inline ${year === selectedYear ? 'active' : ''}`}
+                onClick={() => onYearChange(year)}
+              >
+                {year}
+              </button>
+            ))}
           </div>
         </div>
       </div>
