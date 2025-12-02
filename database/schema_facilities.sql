@@ -47,3 +47,4 @@ COMMENT ON COLUMN facilities.sub_type IS 'Sub-category: for schools (primary/sec
 COMMENT ON COLUMN facilities.additional_info IS 'JSON field for flexible additional data like capacity, services, etc.';
 
 
+

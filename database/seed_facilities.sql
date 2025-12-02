@@ -83,3 +83,4 @@ GROUP BY category, sub_type
 ORDER BY category, sub_type;
 
 
+
