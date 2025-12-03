@@ -5,7 +5,9 @@ import './Header.css';
 
 const Header = ({ selectedYear, onYearChange, onUploadClick }) => {
   const { theme, toggleTheme } = useTheme();
-  const [years, setYears] = React.useState([2024]);
+  // Default to current year
+  const currentYear = new Date().getFullYear();
+  const [years, setYears] = React.useState([currentYear]);
 
   // Fetch available years from API
   React.useEffect(() => {

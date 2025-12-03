@@ -90,8 +90,12 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
   useEffect(() => {
     const fetchFacilities = async () => {
       try {
-        const response = await axios.get(getApiUrl(`api/facilities?year=${selectedYear}`));
-        if (response.data) {
+        const url = getApiUrl(`api/facilities?year=${selectedYear}`);
+        console.log('Fetching facilities from:', url);
+        const response = await axios.get(url);
+        console.log('Facilities API response:', response.data);
+        
+        if (response.data && Array.isArray(response.data)) {
           setFacilities(response.data);
           
           // Calculate counts for layer control
@@ -106,10 +110,20 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
             shop: response.data.filter(f => f.category === 'shop').length,
             office: response.data.filter(f => f.category === 'office').length
           };
+          
+          console.log('Facility counts by category:', counts);
+          console.log('Police stations found:', response.data.filter(f => f.category === 'police'));
           setLayerCounts(counts);
+        } else {
+          console.warn('Facilities API returned non-array data:', response.data);
+          setFacilities([]);
+          setLayerCounts({});
         }
       } catch (error) {
         console.error('Error fetching facilities:', error);
+        console.error('Error details:', error.response?.data || error.message);
+        setFacilities([]);
+        setLayerCounts({});
       }
     };
     
@@ -342,12 +356,26 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
             ? `school-${facility.sub_type}` 
             : facility.category;
           
-          if (!visibleLayers[layerId]) return null;
+          if (!visibleLayers[layerId]) {
+            if (facility.category === 'police') {
+              console.log('Police station hidden by layer visibility:', facility.name, 'layerId:', layerId, 'visibleLayers:', visibleLayers);
+            }
+            return null;
+          }
           
           const lat = facility.location?.coordinates?.[1] || facility.latitude;
           const lon = facility.location?.coordinates?.[0] || facility.longitude;
           
-          if (!lat || !lon) return null;
+          if (!lat || !lon) {
+            if (facility.category === 'police') {
+              console.warn('Police station missing coordinates:', facility.name, 'location:', facility.location, 'lat:', facility.latitude, 'lon:', facility.longitude);
+            }
+            return null;
+          }
+          
+          if (facility.category === 'police') {
+            console.log('Rendering police station:', facility.name, 'at', lat, lon);
+          }
           
           const color = getCategoryColor(facility.category, facility.sub_type);
           const icon = createCustomIcon(facility.category, facility.sub_type, color, 'medium');

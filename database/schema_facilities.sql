@@ -48,3 +48,4 @@ COMMENT ON COLUMN facilities.additional_info IS 'JSON field for flexible additio
 
 
 
+

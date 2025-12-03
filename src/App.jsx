@@ -15,7 +15,9 @@ function DashboardView() {
   const [geospatialData, setGeospatialData] = useState(null);
   const [trendData, setTrendData] = useState([]);
   const [statistics, setStatistics] = useState(null);
-  const [selectedYear, setSelectedYear] = useState(2024);
+  // Default to current year (2025)
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(currentYear);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedFeature, setSelectedFeature] = useState(null);

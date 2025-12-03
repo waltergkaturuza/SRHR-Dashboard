@@ -9,6 +9,16 @@ import geopandas as gpd
 import json
 import tempfile
 import shutil
+from datetime import datetime
+
+# Helper function to get current year
+def get_current_year():
+    return datetime.now().year
+from datetime import datetime
+
+# Helper function to get current year
+def get_current_year():
+    return datetime.now().year
 
 # Load environment variables
 load_dotenv()
@@ -65,17 +75,44 @@ def health_check():
 
 @app.route('/api/years', methods=['GET'])
 def get_available_years():
-    """Get all available years from database"""
+    """Get all available years from database (health_platforms and facilities)"""
     try:
-        years = HealthPlatform.get_available_years()
-        current_year = max(years) if years else 2024
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        
+        # Get years from health_platforms
+        health_years = HealthPlatform.get_available_years()
+        
+        # Get years from facilities table if it exists
+        facilities_years = []
+        if 'facilities' in inspector.get_table_names():
+            try:
+                result = db.session.execute(db.text("SELECT DISTINCT year FROM facilities ORDER BY year"))
+                facilities_years = [row[0] for row in result]
+            except Exception as e:
+                print(f"Error fetching facilities years: {e}")
+        
+        # Combine and deduplicate years
+        all_years = list(set(health_years + facilities_years))
+        all_years.sort(reverse=True)  # Sort descending (newest first)
+        
+        # Default to current year (2025) if no years found
+        from datetime import datetime
+        current_year = datetime.now().year if not all_years else max(all_years)
         
         return jsonify({
-            "years": years,
+            "years": all_years,
             "current_year": current_year
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        # Fallback to current year on error
+        from datetime import datetime
+        current_year = datetime.now().year
+        return jsonify({
+            "years": [current_year],
+            "current_year": current_year,
+            "error": str(e)
+        }), 500
 
 
 @app.route('/api/geospatial-data', methods=['GET'])
@@ -86,7 +123,7 @@ def get_geospatial_data():
     if not year:
         # Get most recent year
         years = HealthPlatform.get_available_years()
-        year = max(years) if years else 2024
+        year = max(years) if years else get_current_year()
     
     try:
         platforms = HealthPlatform.query.filter_by(year=year).all()
@@ -120,7 +157,7 @@ def get_statistics():
     
     if not year:
         years = HealthPlatform.get_available_years()
-        year = max(years) if years else 2024
+        year = max(years) if years else get_current_year()
     
     try:
         stats = HealthPlatform.get_statistics_by_year(year)
@@ -153,7 +190,7 @@ def upload_file():
     
     if not year:
         years = HealthPlatform.get_available_years()
-        year = max(years) + 1 if years else 2024
+        year = max(years) + 1 if years else get_current_year()
     
     if file.filename == '':
         return jsonify({"error": "No file selected"}), 400
@@ -462,7 +499,7 @@ def get_boundaries():
 @app.route('/api/district/<district_name>/facilities', methods=['GET'])
 def get_district_facilities(district_name):
     """Get all facilities within a specific district"""
-    year = request.args.get('year', type=int, default=2024)
+    year = request.args.get('year', type=int, default=get_current_year())
     
     try:
         # Get health platforms in district
@@ -518,7 +555,7 @@ def get_facilities():
     
     if not year:
         years = db.session.query(db.func.max(db.text('year'))).select_from(db.text('facilities')).scalar()
-        year = years if years else 2024
+        year = years if years else get_current_year()
     
     try:
         # Check if facilities table exists
@@ -536,6 +573,7 @@ def get_facilities():
                 sub_type,
                 year,
                 address,
+                description,
                 ST_X(location) as longitude,
                 ST_Y(location) as latitude,
                 additional_info
@@ -554,6 +592,7 @@ def get_facilities():
                     sub_type,
                     year,
                     address,
+                    description,
                     ST_X(location) as longitude,
                     ST_Y(location) as latitude,
                     additional_info
@@ -573,6 +612,7 @@ def get_facilities():
                 'sub_type': row.sub_type,
                 'year': row.year,
                 'address': row.address,
+                'description': getattr(row, 'description', None),  # Add description if exists
                 'location': {
                     'coordinates': [row.longitude, row.latitude]
                 },
@@ -580,6 +620,15 @@ def get_facilities():
                 'latitude': row.latitude,
                 'additional_info': row.additional_info
             })
+        
+        # Log for debugging
+        print(f"Found {len(facilities_list)} facilities for year {year}")
+        police_count = len([f for f in facilities_list if f['category'] == 'police'])
+        if police_count > 0:
+            print(f"Found {police_count} police stations")
+            for f in facilities_list:
+                if f['category'] == 'police':
+                    print(f"  - {f['name']}: lat={f['latitude']}, lon={f['longitude']}")
         
         return jsonify(facilities_list)
     except Exception as e:

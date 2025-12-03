@@ -13,12 +13,15 @@ interface DashboardStore {
   toggleDistrictSelection: (districtId: string) => void;
 }
 
+// Get current year as default
+const getCurrentYear = () => new Date().getFullYear();
+
 export const useDashboardStore = create<DashboardStore>((set) => ({
   districts: [],
   healthSpaces: [],
   filterState: {
     selectedDistricts: [],
-    selectedYear: 2024,
+    selectedYear: getCurrentYear(), // Default to current year (2025)
     selectedType: null,
   },
   uploadedData: [],

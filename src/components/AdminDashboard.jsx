@@ -13,7 +13,9 @@ const AdminDashboard = () => {
   const [editForm, setEditForm] = useState({});
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterYear, setFilterYear] = useState('all');
+  // Default to current year instead of 'all'
+  const currentYear = new Date().getFullYear();
+  const [filterYear, setFilterYear] = useState(currentYear.toString());
   const [filterType, setFilterType] = useState('all');
   const [filterCategory, setFilterCategory] = useState('health'); // health, school, church, police, shop, office
   const [availableYears, setAvailableYears] = useState([]);
@@ -135,13 +137,17 @@ const AdminDashboard = () => {
     'Westlea'
   ].sort(); // Alphabetically sorted for easier selection
 
+  // Fetch years on mount
+  useEffect(() => {
+    fetchYears();
+  }, []);
+
   useEffect(() => {
     if (filterCategory === 'health') {
       fetchAllPlatforms();
     } else {
       fetchFacilities();
     }
-    fetchYears();
   }, [filterCategory]);
 
   useEffect(() => {
@@ -204,9 +210,29 @@ const AdminDashboard = () => {
   const fetchYears = async () => {
     try {
       const response = await axios.get(getApiUrl('api/years'));
-      setAvailableYears(response.data.years || []);
+      const years = response.data.years || [];
+      // Sort years descending (newest first)
+      const sortedYears = [...years].sort((a, b) => b - a);
+      setAvailableYears(sortedYears);
+      
+      // Set default to current year if available, otherwise latest year
+      if (sortedYears.length > 0) {
+        const defaultYear = sortedYears.includes(currentYear) 
+          ? currentYear 
+          : Math.max(...sortedYears);
+        // Update filterYear if it's 'all', '2024', or not in available years
+        if (filterYear === 'all' || filterYear === '2024' || !sortedYears.includes(parseInt(filterYear))) {
+          setFilterYear(defaultYear.toString());
+        }
+      }
     } catch (error) {
       console.error('Error fetching years:', error);
+      // Fallback: use current year and recent years
+      const fallbackYears = [currentYear, currentYear - 1, currentYear - 2, currentYear - 3, currentYear - 4];
+      setAvailableYears(fallbackYears);
+      if (filterYear === 'all' || filterYear === '2024' || !fallbackYears.includes(parseInt(filterYear))) {
+        setFilterYear(currentYear.toString());
+      }
     }
   };
 
@@ -409,10 +435,11 @@ const AdminDashboard = () => {
             className="filter-select"
             value={filterYear}
             onChange={(e) => setFilterYear(e.target.value)}
+            style={{ minWidth: '120px' }}
           >
             <option value="all">All Years</option>
             {availableYears.map(year => (
-              <option key={year} value={year}>{year}</option>
+              <option key={year} value={year.toString()}>{year}</option>
             ))}
           </select>
 
