@@ -12,6 +12,7 @@ const AdminDashboard = () => {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   // Default to current year instead of 'all'
   const currentYear = new Date().getFullYear();
@@ -168,6 +169,7 @@ const AdminDashboard = () => {
           response.data.features.forEach(feature => {
             allPlatforms.push({
               ...feature.properties,
+              category: 'health', // Health platforms from geospatial-data endpoint
               latitude: feature.geometry.coordinates[1],
               longitude: feature.geometry.coordinates[0]
             });
@@ -282,37 +284,108 @@ const AdminDashboard = () => {
   };
 
   const handleEdit = (platform) => {
-    setEditingId(platform.id);
-    setEditForm(platform);
+    // Determine category from platform data
+    const category = platform.category || (platform.type ? 'health' : 'health');
+    
+    // Prepare edit form with all fields
+    setEditForm({
+      id: platform.id,
+      name: platform.name || '',
+      category: category,
+      type: platform.type || '',
+      sub_type: platform.sub_type || '',
+      youth_count: platform.youth_count || 0,
+      total_members: platform.total_members || 0,
+      year: platform.year || new Date().getFullYear(),
+      address: platform.address || '',
+      description: platform.description || '',
+      district: platform.district || '',
+      latitude: platform.latitude || -17.8252,
+      longitude: platform.longitude || 31.0492
+    });
+    setShowEditModal(true);
   };
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
     try {
-      await axios.put(getApiUrl(`api/platform/${editingId}`), editForm);
-      await fetchAllPlatforms();
+      // Determine if it's a health platform or facility
+      const isHealthPlatform = editForm.category === 'health' || (!editForm.category && editForm.type);
+      
+      if (isHealthPlatform) {
+        // Update health platform via existing endpoint
+        await axios.put(getApiUrl(`api/platform/${editingId}`), {
+          name: editForm.name,
+          type: editForm.type,
+          youth_count: parseInt(editForm.youth_count) || 0,
+          total_members: parseInt(editForm.total_members) || 0,
+          address: editForm.address,
+          description: editForm.description,
+          district: editForm.district
+        });
+      } else {
+        // Update facility via new endpoint
+        await axios.put(getApiUrl(`api/facility/${editingId}`), {
+          name: editForm.name,
+          category: editForm.category,
+          sub_type: editForm.sub_type,
+          year: parseInt(editForm.year),
+          address: editForm.address,
+          description: editForm.description,
+          district: editForm.district,
+          latitude: parseFloat(editForm.latitude),
+          longitude: parseFloat(editForm.longitude)
+        });
+      }
+      
+      // Refresh data
+      if (filterCategory === 'health') {
+        await fetchAllPlatforms();
+      } else {
+        await fetchFacilities();
+      }
+      
+      setShowEditModal(false);
       setEditingId(null);
       setEditForm({});
       alert('Platform updated successfully!');
     } catch (error) {
       console.error('Error updating platform:', error);
-      alert('Error updating platform: ' + error.message);
+      alert('Error updating platform: ' + (error.response?.data?.error || error.message));
     }
   };
 
   const handleCancelEdit = () => {
+    setShowEditModal(false);
     setEditingId(null);
     setEditForm({});
   };
 
-  const handleDelete = async (id, name) => {
+  const handleDelete = async (id, name, category) => {
     if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
       try {
-        await axios.delete(getApiUrl(`api/platform/${id}`));
-        await fetchAllPlatforms();
+        // Determine if it's a health platform or facility based on current filter category
+        // This is more reliable than checking individual platform category
+        const isHealthPlatform = filterCategory === 'health';
+        
+        if (isHealthPlatform) {
+          await axios.delete(getApiUrl(`api/platform/${id}`));
+        } else {
+          await axios.delete(getApiUrl(`api/facility/${id}`));
+        }
+        
+        // Refresh data based on current filter
+        if (filterCategory === 'health') {
+          await fetchAllPlatforms();
+        } else {
+          await fetchFacilities();
+        }
+        
         alert('Platform deleted successfully!');
       } catch (error) {
         console.error('Error deleting platform:', error);
-        alert('Error deleting platform: ' + error.message);
+        const errorMessage = error.response?.data?.error || error.message || 'Unknown error';
+        alert(`Error deleting platform: ${errorMessage}`);
       }
     }
   };
@@ -533,110 +606,42 @@ const AdminDashboard = () => {
             </thead>
             <tbody>
               {filteredPlatforms.map(platform => (
-                <tr key={platform.id} className={editingId === platform.id ? 'editing' : ''}>
-                  {editingId === platform.id ? (
-                    // Edit mode
-                    <>
-                      <td>{platform.id}</td>
-                      <td>
-                        <input
-                          type="text"
-                          value={editForm.name || ''}
-                          onChange={(e) => setEditForm({...editForm, name: e.target.value})}
-                          className="edit-input"
-                        />
-                      </td>
-                      <td>
-                        <select
-                          value={editForm.type || ''}
-                          onChange={(e) => setEditForm({...editForm, type: e.target.value})}
-                          className="edit-select"
-                        >
-                          {platformTypes.map(type => (
-                            <option key={type} value={type}>{type}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          value={editForm.youth_count || 0}
-                          onChange={(e) => setEditForm({...editForm, youth_count: parseInt(e.target.value)})}
-                          className="edit-input-small"
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          value={editForm.total_members || 0}
-                          onChange={(e) => setEditForm({...editForm, total_members: parseInt(e.target.value)})}
-                          className="edit-input-small"
-                        />
-                      </td>
-                      <td>{platform.year}</td>
-                      <td>
-                        {((editForm.youth_count / editForm.total_members) * 100).toFixed(1)}%
-                      </td>
-                      <td>
-                        <input
-                          type="text"
-                          value={editForm.address || ''}
-                          onChange={(e) => setEditForm({...editForm, address: e.target.value})}
-                          className="edit-input"
-                        />
-                      </td>
-                      <td className="coords-cell">
-                        {platform.latitude.toFixed(4)}, {platform.longitude.toFixed(4)}
-                      </td>
-                      <td>
-                        <div className="action-buttons">
-                          <button className="btn-save" onClick={handleSaveEdit} title="Save">
-                            <Save size={16} />
-                          </button>
-                          <button className="btn-cancel" onClick={handleCancelEdit} title="Cancel">
-                            <X size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </>
-                  ) : (
-                    // View mode
-                    <>
-                      <td>{platform.id}</td>
-                      <td className="name-cell">{platform.name}</td>
-                      <td>
-                        <span className="type-badge">{platform.type}</span>
-                      </td>
-                      <td className="number-cell">{platform.youth_count}</td>
-                      <td className="number-cell">{platform.total_members}</td>
-                      <td className="year-cell">{platform.year}</td>
-                      <td className="percent-cell">
-                        {((platform.youth_count / platform.total_members) * 100).toFixed(1)}%
-                      </td>
-                      <td className="address-cell">{platform.address || '-'}</td>
-                      <td className="coords-cell">
-                        {platform.latitude.toFixed(4)}, {platform.longitude.toFixed(4)}
-                      </td>
-                      <td>
-                        <div className="action-buttons">
-                          <button 
-                            className="btn-edit" 
-                            onClick={() => handleEdit(platform)}
-                            title="Edit"
-                          >
-                            <Edit2 size={16} />
-                          </button>
+                <tr key={platform.id}>
+                  <td>{platform.id}</td>
+                  <td className="name-cell">{platform.name}</td>
+                  <td>
+                    <span className="type-badge">{platform.type || platform.sub_type || '-'}</span>
+                  </td>
+                  <td className="number-cell">{platform.youth_count || '-'}</td>
+                  <td className="number-cell">{platform.total_members || '-'}</td>
+                  <td className="year-cell">{platform.year}</td>
+                  <td className="percent-cell">
+                    {platform.youth_count && platform.total_members 
+                      ? ((platform.youth_count / platform.total_members) * 100).toFixed(1) + '%'
+                      : '-'}
+                  </td>
+                  <td className="address-cell">{platform.address || '-'}</td>
+                  <td className="coords-cell">
+                    {platform.latitude?.toFixed(4)}, {platform.longitude?.toFixed(4)}
+                  </td>
+                  <td>
+                    <div className="action-buttons">
+                      <button 
+                        className="btn-edit" 
+                        onClick={() => handleEdit(platform)}
+                        title="Edit"
+                      >
+                        <Edit2 size={16} />
+                      </button>
                           <button 
                             className="btn-delete" 
-                            onClick={() => handleDelete(platform.id, platform.name)}
+                            onClick={() => handleDelete(platform.id, platform.name, platform.category)}
                             title="Delete"
                           >
                             <Trash2 size={16} />
                           </button>
-                        </div>
-                      </td>
-                    </>
-                  )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -827,6 +832,211 @@ const AdminDashboard = () => {
                 <button type="submit" className="btn-submit">
                   <Plus size={18} />
                   Add Platform
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Platform Modal */}
+      {showEditModal && (
+        <div className="modal-overlay" onClick={handleCancelEdit}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Edit Platform</h2>
+              <button className="close-btn" onClick={handleCancelEdit}>
+                <X size={24} />
+              </button>
+            </div>
+
+            <form className="add-form" onSubmit={handleSaveEdit}>
+              {/* Category Selection (only if not health) */}
+              {editForm.category && editForm.category !== 'health' && (
+                <div className="form-group">
+                  <label>Facility Category *</label>
+                  <select
+                    value={editForm.category}
+                    onChange={(e) => {
+                      const category = e.target.value;
+                      const categoryConfig = categories.find(c => c.value === category);
+                      setEditForm({
+                        ...editForm, 
+                        category,
+                        sub_type: categoryConfig?.subTypes[0] || ''
+                      });
+                    }}
+                    className="category-select-large"
+                  >
+                    {categories.map(cat => (
+                      <option key={cat.value} value={cat.value}>{cat.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                    placeholder="Platform name"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Type/Sub-Category *</label>
+                  {editForm.category === 'health' || !editForm.category ? (
+                    <select
+                      value={editForm.type || ''}
+                      onChange={(e) => setEditForm({...editForm, type: e.target.value})}
+                      required
+                    >
+                      {healthPlatformTypes.map(type => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <select
+                      value={editForm.sub_type || ''}
+                      onChange={(e) => setEditForm({...editForm, sub_type: e.target.value})}
+                      required
+                    >
+                      {(categories.find(c => c.value === editForm.category)?.subTypes || []).map(type => (
+                        <option key={type} value={type}>
+                          {type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ')}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label>Suburb/Location</label>
+                  <select
+                    value={editForm.district || ''}
+                    onChange={(e) => setEditForm({...editForm, district: e.target.value})}
+                  >
+                    <option value="">Select Suburb/Location</option>
+                    {suburbs.map(suburb => (
+                      <option key={suburb} value={suburb}>{suburb}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {(editForm.category === 'health' || !editForm.category) && (
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Youth Count (≤24 years)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editForm.youth_count || 0}
+                      onChange={(e) => setEditForm({...editForm, youth_count: e.target.value})}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Total Members</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={editForm.total_members || 0}
+                      onChange={(e) => setEditForm({...editForm, total_members: e.target.value})}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Year *</label>
+                    <input
+                      type="number"
+                      required
+                      min="2000"
+                      max="2100"
+                      value={editForm.year}
+                      onChange={(e) => setEditForm({...editForm, year: e.target.value})}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {editForm.category && editForm.category !== 'health' && (
+                <div className="form-group">
+                  <label>Year *</label>
+                  <input
+                    type="number"
+                    required
+                    min="2000"
+                    max="2100"
+                    value={editForm.year}
+                    onChange={(e) => setEditForm({...editForm, year: e.target.value})}
+                  />
+                </div>
+              )}
+
+              <div className="form-group">
+                <label>Address</label>
+                <input
+                  type="text"
+                  value={editForm.address || ''}
+                  onChange={(e) => setEditForm({...editForm, address: e.target.value})}
+                  placeholder="e.g., Corner 5th Street & Central Avenue"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Description / Additional Notes</label>
+                <textarea
+                  rows="3"
+                  value={editForm.description || ''}
+                  onChange={(e) => setEditForm({...editForm, description: e.target.value})}
+                  placeholder="Add any additional information..."
+                  className="form-textarea"
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Latitude *</label>
+                  <input
+                    type="number"
+                    required
+                    step="0.000001"
+                    value={editForm.latitude}
+                    onChange={(e) => setEditForm({...editForm, latitude: e.target.value})}
+                    placeholder="-17.8252"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Longitude *</label>
+                  <input
+                    type="number"
+                    required
+                    step="0.000001"
+                    value={editForm.longitude}
+                    onChange={(e) => setEditForm({...editForm, longitude: e.target.value})}
+                    placeholder="31.0492"
+                  />
+                </div>
+              </div>
+
+              <div className="form-note">
+                <p><strong>Note:</strong> For Harare, Zimbabwe coordinates are approximately:</p>
+                <p>Latitude: -17.78 to -17.87 | Longitude: 31.00 to 31.10</p>
+              </div>
+
+              <div className="form-actions">
+                <button type="button" className="btn-cancel" onClick={handleCancelEdit}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-submit">
+                  <Save size={18} />
+                  Save Changes
                 </button>
               </div>
             </form>

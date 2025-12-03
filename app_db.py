@@ -637,6 +637,127 @@ def get_facilities():
         return jsonify([])
 
 
+@app.route('/api/facility/<int:facility_id>', methods=['GET', 'PUT', 'DELETE'])
+def manage_facility(facility_id):
+    """Get, update, or delete a specific facility"""
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        
+        if 'facilities' not in inspector.get_table_names():
+            return jsonify({"error": "Facilities table does not exist"}), 404
+        
+        if request.method == 'GET':
+            query = db.text("""
+                SELECT 
+                    id, name, category, sub_type, year, address, description, district,
+                    ST_X(location) as longitude,
+                    ST_Y(location) as latitude,
+                    additional_info
+                FROM facilities
+                WHERE id = :id
+            """)
+            result = db.session.execute(query, {'id': facility_id}).fetchone()
+            
+            if not result:
+                return jsonify({"error": "Facility not found"}), 404
+            
+            return jsonify({
+                'id': result.id,
+                'name': result.name,
+                'category': result.category,
+                'sub_type': result.sub_type,
+                'year': result.year,
+                'address': result.address,
+                'description': result.description,
+                'district': result.district,
+                'longitude': result.longitude,
+                'latitude': result.latitude,
+                'additional_info': result.additional_info
+            })
+        
+        elif request.method == 'PUT':
+            data = request.json
+            
+            # Build update query dynamically
+            updates = []
+            params = {'id': facility_id}
+            
+            if 'name' in data:
+                updates.append('name = :name')
+                params['name'] = data['name']
+            if 'category' in data:
+                updates.append('category = :category')
+                params['category'] = data['category']
+            if 'sub_type' in data:
+                updates.append('sub_type = :sub_type')
+                params['sub_type'] = data['sub_type']
+            if 'year' in data:
+                updates.append('year = :year')
+                params['year'] = data['year']
+            if 'address' in data:
+                updates.append('address = :address')
+                params['address'] = data['address']
+            if 'description' in data:
+                updates.append('description = :description')
+                params['description'] = data['description']
+            if 'district' in data:
+                updates.append('district = :district')
+                params['district'] = data['district']
+            
+            # Update location if coordinates provided
+            if 'latitude' in data and 'longitude' in data:
+                updates.append('location = ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)')
+                params['lon'] = data['longitude']
+                params['lat'] = data['latitude']
+            
+            if not updates:
+                return jsonify({"error": "No fields to update"}), 400
+            
+            update_query = db.text(f"""
+                UPDATE facilities
+                SET {', '.join(updates)}, updated_at = CURRENT_TIMESTAMP
+                WHERE id = :id
+            """)
+            
+            db.session.execute(update_query, params)
+            db.session.commit()
+            
+            # Return updated facility
+            query = db.text("""
+                SELECT 
+                    id, name, category, sub_type, year, address, description, district,
+                    ST_X(location) as longitude,
+                    ST_Y(location) as latitude
+                FROM facilities
+                WHERE id = :id
+            """)
+            result = db.session.execute(query, {'id': facility_id}).fetchone()
+            
+            return jsonify({
+                'id': result.id,
+                'name': result.name,
+                'category': result.category,
+                'sub_type': result.sub_type,
+                'year': result.year,
+                'address': result.address,
+                'description': result.description,
+                'district': result.district,
+                'longitude': result.longitude,
+                'latitude': result.latitude
+            })
+        
+        elif request.method == 'DELETE':
+            delete_query = db.text("DELETE FROM facilities WHERE id = :id")
+            db.session.execute(delete_query, {'id': facility_id})
+            db.session.commit()
+            return jsonify({"message": "Facility deleted successfully"})
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
 # Database initialization commands
 @app.cli.command('init-db')
 def init_db():
