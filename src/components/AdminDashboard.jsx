@@ -319,6 +319,9 @@ const AdminDashboard = () => {
   };
 
   const handleEdit = (platform) => {
+    // Ensure we track which record is being edited (used by PUT endpoints)
+    setEditingId(platform.id);
+
     // Determine category from platform data
     const category = platform.category || (platform.type ? 'health' : 'health');
     
