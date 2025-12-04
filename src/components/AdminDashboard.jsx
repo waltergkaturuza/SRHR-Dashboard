@@ -56,7 +56,7 @@ const AdminDashboard = () => {
     { value: 'police', label: '🚔 Police Station', subTypes: ['Main Station', 'Branch Office', 'Police Post'] },
     { value: 'shop', label: '🏪 Shop/Market', subTypes: ['Market', 'Shopping Mall', 'Shopping Center', 'Retail Store', 'Supermarket'] },
     { value: 'office', label: '🏢 Government Office', subTypes: ['Municipal Office', 'Ministry', 'District Office', 'Provincial Office', 'Government Department'] },
-    { value: 'clinic', label: '🏥 Health Clinic', subTypes: ['Primary Clinic', 'Polyclinic', 'Health Center', 'Medical Center', 'Maternity Clinic'] }
+    { value: 'clinic', label: '🏥 Health Clinic', subTypes: ['Primary Clinic', 'Polyclinic', 'Health Center', 'Medical Center', 'Maternity Clinic', 'Pharmacy'] }
   ];
 
   const suburbs = [
