@@ -59,6 +59,8 @@ const AdminDashboard = () => {
     { value: 'clinic', label: '🏥 Health Clinic', subTypes: ['Primary Clinic', 'Polyclinic', 'Health Center', 'Medical Center', 'Maternity Clinic', 'Pharmacy'] }
   ];
 
+  const normalizeSubType = (subType) => (subType || '').toLowerCase().replace(/\s+/g, '_');
+
   const suburbs = [
     'Alexandra Park',
     'Avenues',
@@ -361,7 +363,7 @@ const AdminDashboard = () => {
         await axios.put(getApiUrl(`api/facility/${editingId}`), {
           name: editForm.name,
           category: editForm.category,
-          sub_type: editForm.sub_type,
+          sub_type: normalizeSubType(editForm.sub_type),
           year: parseInt(editForm.year),
           address: editForm.address,
           description: editForm.description,
@@ -427,7 +429,7 @@ const AdminDashboard = () => {
     e.preventDefault();
     try {
       // Create GeoJSON for upload
-      const geojson = {
+          const geojson = {
         type: "FeatureCollection",
         features: [{
           type: "Feature",
@@ -435,10 +437,10 @@ const AdminDashboard = () => {
             type: "Point",
             coordinates: [parseFloat(newPlatform.longitude), parseFloat(newPlatform.latitude)]
           },
-          properties: {
+              properties: {
             name: newPlatform.name,
             type: newPlatform.category === 'health' ? newPlatform.type : undefined,
-            sub_type: newPlatform.category !== 'health' ? newPlatform.sub_type : undefined,
+                sub_type: newPlatform.category !== 'health' ? normalizeSubType(newPlatform.sub_type) : undefined,
             youth_count: newPlatform.category === 'health' ? parseInt(newPlatform.youth_count) : undefined,
             total_members: newPlatform.category === 'health' ? parseInt(newPlatform.total_members) : undefined,
             year: parseInt(newPlatform.year),

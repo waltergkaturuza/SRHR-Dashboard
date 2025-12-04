@@ -63,6 +63,9 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
   const zoom = 12;
   const minZoom = 8;  // Allow zooming out to see wider area
   const maxZoom = 22; // Google Earth-style deep zoom (very detailed)
+
+  // Helper to normalize sub_type values (e.g., "Primary" → "primary")
+  const normalizeSubType = (subType) => (subType || '').toLowerCase().replace(/\s+/g, '_');
   
   // Fullscreen toggle
   const toggleFullscreen = () => {
@@ -99,23 +102,35 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
         console.log('Facilities API response:', response.data);
         
         if (response.data && Array.isArray(response.data)) {
-          setFacilities(response.data);
+          // Normalize school sub_type values so that "Primary", "primary", etc. all behave the same
+          const normalized = response.data.map(f => ({
+            ...f,
+            sub_type: f.category === 'school' ? normalizeSubType(f.sub_type) : f.sub_type,
+          }));
+
+          setFacilities(normalized);
           
           // Calculate counts for layer control
           const counts = {
-            health: response.data.filter(f => f.category === 'health').length,
-            clinic: response.data.filter(f => f.category === 'clinic').length,
-            schoolPrimary: response.data.filter(f => f.category === 'school' && f.sub_type === 'primary').length,
-            schoolSecondary: response.data.filter(f => f.category === 'school' && f.sub_type === 'secondary').length,
-            schoolTertiary: response.data.filter(f => f.category === 'school' && f.sub_type === 'tertiary').length,
-            church: response.data.filter(f => f.category === 'church').length,
-            police: response.data.filter(f => f.category === 'police').length,
-            shop: response.data.filter(f => f.category === 'shop').length,
-            office: response.data.filter(f => f.category === 'office').length
+            health: normalized.filter(f => f.category === 'health').length,
+            clinic: normalized.filter(f => f.category === 'clinic').length,
+            schoolPrimary: normalized.filter(
+              f => f.category === 'school' && normalizeSubType(f.sub_type) === 'primary'
+            ).length,
+            schoolSecondary: normalized.filter(
+              f => f.category === 'school' && normalizeSubType(f.sub_type) === 'secondary'
+            ).length,
+            schoolTertiary: normalized.filter(
+              f => f.category === 'school' && normalizeSubType(f.sub_type) === 'tertiary'
+            ).length,
+            church: normalized.filter(f => f.category === 'church').length,
+            police: normalized.filter(f => f.category === 'police').length,
+            shop: normalized.filter(f => f.category === 'shop').length,
+            office: normalized.filter(f => f.category === 'office').length
           };
           
           console.log('Facility counts by category:', counts);
-          console.log('Police stations found:', response.data.filter(f => f.category === 'police'));
+          console.log('Police stations found:', normalized.filter(f => f.category === 'police'));
           setLayerCounts(counts);
         } else {
           console.warn('Facilities API returned non-array data:', response.data);
@@ -359,8 +374,9 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
         
         {/* Facility Markers */}
         {facilities.map((facility, idx) => {
+          const subType = facility.category === 'school' ? normalizeSubType(facility.sub_type) : facility.sub_type;
           const layerId = facility.category === 'school' 
-            ? `school-${facility.sub_type}` 
+            ? `school-${subType}` 
             : facility.category;
           
           if (!visibleLayers[layerId]) {
