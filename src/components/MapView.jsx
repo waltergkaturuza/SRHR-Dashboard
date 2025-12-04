@@ -25,7 +25,8 @@ function MapUpdater({ selectedFeature }) {
   useEffect(() => {
     if (selectedFeature && selectedFeature.geometry) {
       const coords = selectedFeature.geometry.coordinates;
-      map.setView([coords[1], coords[0]], 13, { animate: true });
+      // Zoom to level 18 for detailed view (can zoom in further manually)
+      map.setView([coords[1], coords[0]], 18, { animate: true });
     }
   }, [selectedFeature, map]);
 
@@ -60,6 +61,8 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
   // Harare center coordinates
   const center = [-17.8252, 31.0492];
   const zoom = 12;
+  const minZoom = 8;  // Allow zooming out to see wider area
+  const maxZoom = 22; // Google Earth-style deep zoom (very detailed)
   
   // Fullscreen toggle
   const toggleFullscreen = () => {
@@ -260,12 +263,15 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
       <MapContainer
         center={center}
         zoom={zoom}
+        minZoom={minZoom}
+        maxZoom={maxZoom}
         className="leaflet-map"
         ref={mapRef}
       >
         <TileLayer
           attribution={getCurrentTileConfig().attribution}
           url={getCurrentTileConfig().url}
+          maxZoom={maxZoom}
           key={`${mapLayer}-${theme}`}
         />
         
@@ -273,6 +279,7 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
         {mapLayer === 'hybrid' && getCurrentTileConfig().overlay && (
           <TileLayer
             url={getCurrentTileConfig().overlay}
+            maxZoom={maxZoom}
             key={`overlay-${theme}`}
           />
         )}
