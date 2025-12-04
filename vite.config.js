@@ -10,11 +10,11 @@ export default defineConfig({
       configureServer(server) {
         return () => {
           server.middlewares.use((req, res, next) => {
-            // If request is for a file (has extension), let it through
-            if (req.url && req.url.includes('.')) {
+            // Skip API routes and static assets
+            if (req.url?.startsWith('/api') || req.url?.includes('.')) {
               return next()
             }
-            // Otherwise, serve index.html for all routes (SPA fallback)
+            // Serve index.html for all other routes (SPA fallback)
             req.url = '/index.html'
             next()
           })
