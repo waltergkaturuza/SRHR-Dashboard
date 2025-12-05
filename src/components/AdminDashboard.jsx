@@ -2,23 +2,26 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { getApiUrl } from '../config';
 import { Edit2, Trash2, Plus, Save, X, Search, Filter, Download } from 'lucide-react';
+import UploadModal from './UploadModal';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
   const [platforms, setPlatforms] = useState([]);
   const [facilities, setFacilities] = useState([]);
+  const [boundaries, setBoundaries] = useState([]);
   const [filteredPlatforms, setFilteredPlatforms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [showAddForm, setShowAddForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showBoundaryUpload, setShowBoundaryUpload] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   // Default to current year instead of 'all'
   const currentYear = new Date().getFullYear();
   const [filterYear, setFilterYear] = useState(currentYear.toString());
   const [filterType, setFilterType] = useState('all');
-  const [filterCategory, setFilterCategory] = useState('health'); // health, school, church, police, shop, office
+  const [filterCategory, setFilterCategory] = useState('health'); // health, school, church, police, shop, office, boundaries
   const [availableYears, setAvailableYears] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: 'year', direction: 'desc' });
 
@@ -179,7 +182,9 @@ const AdminDashboard = () => {
   }, []);
 
   useEffect(() => {
-    if (filterCategory === 'health') {
+    if (filterCategory === 'boundaries') {
+      fetchBoundaries();
+    } else if (filterCategory === 'health') {
       fetchAllPlatforms();
     } else {
       fetchFacilities();
@@ -244,6 +249,34 @@ const AdminDashboard = () => {
     }
   };
   
+  const fetchBoundaries = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(getApiUrl('api/boundaries'));
+      if (response.data && Array.isArray(response.data)) {
+        setBoundaries(response.data);
+        // Map boundaries to platforms format for display
+        setPlatforms(response.data.map(b => ({
+          ...b,
+          category: 'boundary',
+          name: b.name,
+          code: b.code,
+          population: b.population,
+          area_km2: b.area_km2
+        })));
+      } else {
+        setBoundaries([]);
+        setPlatforms([]);
+      }
+    } catch (error) {
+      console.error('Error fetching boundaries:', error);
+      setBoundaries([]);
+      setPlatforms([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchYears = async () => {
     try {
       const response = await axios.get(getApiUrl('api/years'));
@@ -274,34 +307,42 @@ const AdminDashboard = () => {
   };
 
   const filterAndSortPlatforms = () => {
-    let filtered = [...platforms];
+    let filtered = filterCategory === 'boundaries' 
+      ? [...boundaries].map(b => ({ ...b, category: 'boundary' }))
+      : [...platforms];
 
     // Search filter
     if (searchTerm) {
       filtered = filtered.filter(p => 
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.type && p.type.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (p.code && p.code.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (p.address && p.address.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
 
-    // Year filter
-    if (filterYear !== 'all') {
+    // Year filter (skip for boundaries as they don't have year)
+    if (filterYear !== 'all' && filterCategory !== 'boundaries') {
       filtered = filtered.filter(p => p.year === parseInt(filterYear));
     }
 
-    // Type filter
-    if (filterType !== 'all') {
+    // Type filter (skip for boundaries)
+    if (filterType !== 'all' && filterCategory !== 'boundaries') {
       filtered = filtered.filter(p => p.type === filterType);
     }
 
     // Sort
     if (sortConfig.key) {
       filtered.sort((a, b) => {
-        if (a[sortConfig.key] < b[sortConfig.key]) {
+        const aVal = a[sortConfig.key];
+        const bVal = b[sortConfig.key];
+        if (aVal == null && bVal == null) return 0;
+        if (aVal == null) return 1;
+        if (bVal == null) return -1;
+        if (aVal < bVal) {
           return sortConfig.direction === 'asc' ? -1 : 1;
         }
-        if (a[sortConfig.key] > b[sortConfig.key]) {
+        if (aVal > bVal) {
           return sortConfig.direction === 'asc' ? 1 : -1;
         }
         return 0;
@@ -322,74 +363,98 @@ const AdminDashboard = () => {
     // Ensure we track which record is being edited (used by PUT endpoints)
     setEditingId(platform.id);
 
-    // Determine category from platform data
-    const category = platform.category || (platform.type ? 'health' : 'health');
-    
-    // Prepare edit form with all fields
-    setEditForm({
-      id: platform.id,
-      name: platform.name || '',
-      category: category,
-      type: platform.type || '',
-      sub_type: platform.sub_type || '',
-      youth_count: platform.youth_count || 0,
-      total_members: platform.total_members || 0,
-      year: platform.year || new Date().getFullYear(),
-      address: platform.address || '',
-      description: platform.description || '',
-      district: platform.district || '',
-      latitude: platform.latitude || -17.8252,
-      longitude: platform.longitude || 31.0492
-    });
+    // Check if it's a boundary
+    if (platform.category === 'boundary' || filterCategory === 'boundaries') {
+      setEditForm({
+        id: platform.id,
+        name: platform.name || '',
+        code: platform.code || '',
+        population: platform.population || 0,
+        area_km2: platform.area_km2 || 0,
+        category: 'boundary'
+      });
+    } else {
+      // Determine category from platform data
+      const category = platform.category || (platform.type ? 'health' : 'health');
+      
+      // Prepare edit form with all fields
+      setEditForm({
+        id: platform.id,
+        name: platform.name || '',
+        category: category,
+        type: platform.type || '',
+        sub_type: platform.sub_type || '',
+        youth_count: platform.youth_count || 0,
+        total_members: platform.total_members || 0,
+        year: platform.year || new Date().getFullYear(),
+        address: platform.address || '',
+        description: platform.description || '',
+        district: platform.district || '',
+        latitude: platform.latitude || -17.8252,
+        longitude: platform.longitude || 31.0492
+      });
+    }
     setShowEditModal(true);
   };
 
   const handleSaveEdit = async (e) => {
     e.preventDefault();
     try {
-      // Determine if it's a health platform or facility
-      const isHealthPlatform = editForm.category === 'health' || (!editForm.category && editForm.type);
-      
-      if (isHealthPlatform) {
-        // Update health platform via existing endpoint
-        await axios.put(getApiUrl(`api/platform/${editingId}`), {
+      // Check if it's a boundary
+      if (editForm.category === 'boundary' || filterCategory === 'boundaries') {
+        // Update boundary
+        await axios.put(getApiUrl(`api/boundaries/${editingId}`), {
           name: editForm.name,
-          type: editForm.type,
-          youth_count: parseInt(editForm.youth_count) || 0,
-          total_members: parseInt(editForm.total_members) || 0,
-          address: editForm.address,
-          description: editForm.description,
-          district: editForm.district
+          code: editForm.code || null,
+          population: editForm.population ? parseInt(editForm.population) : null,
+          area_km2: editForm.area_km2 ? parseFloat(editForm.area_km2) : null
         });
+        await fetchBoundaries();
       } else {
-        // Update facility via new endpoint
-        await axios.put(getApiUrl(`api/facility/${editingId}`), {
-          name: editForm.name,
-          category: editForm.category,
-          sub_type: normalizeSubType(editForm.sub_type),
-          year: parseInt(editForm.year),
-          address: editForm.address,
-          description: editForm.description,
-          district: editForm.district,
-          latitude: parseFloat(editForm.latitude),
-          longitude: parseFloat(editForm.longitude)
-        });
-      }
-      
-      // Refresh data
-      if (filterCategory === 'health') {
-        await fetchAllPlatforms();
-      } else {
-        await fetchFacilities();
+        // Determine if it's a health platform or facility
+        const isHealthPlatform = editForm.category === 'health' || (!editForm.category && editForm.type);
+        
+        if (isHealthPlatform) {
+          // Update health platform via existing endpoint
+          await axios.put(getApiUrl(`api/platform/${editingId}`), {
+            name: editForm.name,
+            type: editForm.type,
+            youth_count: parseInt(editForm.youth_count) || 0,
+            total_members: parseInt(editForm.total_members) || 0,
+            address: editForm.address,
+            description: editForm.description,
+            district: editForm.district
+          });
+        } else {
+          // Update facility via new endpoint
+          await axios.put(getApiUrl(`api/facility/${editingId}`), {
+            name: editForm.name,
+            category: editForm.category,
+            sub_type: normalizeSubType(editForm.sub_type),
+            year: parseInt(editForm.year),
+            address: editForm.address,
+            description: editForm.description,
+            district: editForm.district,
+            latitude: parseFloat(editForm.latitude),
+            longitude: parseFloat(editForm.longitude)
+          });
+        }
+        
+        // Refresh data
+        if (filterCategory === 'health') {
+          await fetchAllPlatforms();
+        } else {
+          await fetchFacilities();
+        }
       }
       
       setShowEditModal(false);
       setEditingId(null);
       setEditForm({});
-      alert('Platform updated successfully!');
+      alert('Record updated successfully!');
     } catch (error) {
-      console.error('Error updating platform:', error);
-      alert('Error updating platform: ' + (error.response?.data?.error || error.message));
+      console.error('Error updating record:', error);
+      alert('Error updating record: ' + (error.response?.data?.error || error.message));
     }
   };
 
@@ -419,11 +484,11 @@ const AdminDashboard = () => {
           await fetchFacilities();
         }
         
-        alert('Platform deleted successfully!');
+        alert('Record deleted successfully!');
       } catch (error) {
-        console.error('Error deleting platform:', error);
+        console.error('Error deleting record:', error);
         const errorMessage = error.response?.data?.error || error.message || 'Unknown error';
-        alert(`Error deleting platform: ${errorMessage}`);
+        alert(`Error deleting record: ${errorMessage}`);
       }
     }
   };
@@ -530,6 +595,7 @@ const AdminDashboard = () => {
             <option value="police">🚔 Police Stations</option>
             <option value="shop">🏪 Shops & Markets</option>
             <option value="office">🏢 Government Offices</option>
+            <option value="boundaries">🗺️ Boundaries</option>
           </select>
           
           <div className="search-box">
@@ -624,21 +690,37 @@ const AdminDashboard = () => {
                 <th onClick={() => handleSort('name')}>
                   Name {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
-                <th onClick={() => handleSort('type')}>
-                  Type {sortConfig.key === 'type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th onClick={() => handleSort('youth_count')}>
-                  Youth (≤24) {sortConfig.key === 'youth_count' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th onClick={() => handleSort('total_members')}>
-                  Total Members {sortConfig.key === 'total_members' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th onClick={() => handleSort('year')}>
-                  Year {sortConfig.key === 'year' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th>Youth %</th>
-                <th>Address</th>
-                <th>Coordinates</th>
+                {filterCategory === 'boundaries' ? (
+                  <>
+                    <th onClick={() => handleSort('code')}>
+                      Code {sortConfig.key === 'code' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th onClick={() => handleSort('population')}>
+                      Population {sortConfig.key === 'population' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th onClick={() => handleSort('area_km2')}>
+                      Area (km²) {sortConfig.key === 'area_km2' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    </th>
+                  </>
+                ) : (
+                  <>
+                    <th onClick={() => handleSort('type')}>
+                      Type {sortConfig.key === 'type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th onClick={() => handleSort('youth_count')}>
+                      Youth (≤24) {sortConfig.key === 'youth_count' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th onClick={() => handleSort('total_members')}>
+                      Total Members {sortConfig.key === 'total_members' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th onClick={() => handleSort('year')}>
+                      Year {sortConfig.key === 'year' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th>Youth %</th>
+                    <th>Address</th>
+                    <th>Coordinates</th>
+                  </>
+                )}
                 <th>Actions</th>
               </tr>
             </thead>
@@ -647,21 +729,33 @@ const AdminDashboard = () => {
                 <tr key={platform.id}>
                   <td>{platform.id}</td>
                   <td className="name-cell">{platform.name}</td>
-                  <td>
-                    <span className="type-badge">{platform.type || platform.sub_type || '-'}</span>
-                  </td>
-                  <td className="number-cell">{platform.youth_count || '-'}</td>
-                  <td className="number-cell">{platform.total_members || '-'}</td>
-                  <td className="year-cell">{platform.year}</td>
-                  <td className="percent-cell">
-                    {platform.youth_count && platform.total_members 
-                      ? ((platform.youth_count / platform.total_members) * 100).toFixed(1) + '%'
-                      : '-'}
-                  </td>
-                  <td className="address-cell">{platform.address || '-'}</td>
-                  <td className="coords-cell">
-                    {platform.latitude?.toFixed(4)}, {platform.longitude?.toFixed(4)}
-                  </td>
+                  {filterCategory === 'boundaries' ? (
+                    <>
+                      <td>{platform.code || '-'}</td>
+                      <td className="number-cell">{platform.population ? platform.population.toLocaleString() : '-'}</td>
+                      <td className="number-cell">{platform.area_km2 ? platform.area_km2.toFixed(2) : '-'}</td>
+                    </>
+                  ) : (
+                    <>
+                      <td>
+                        <span className="type-badge">{platform.type || platform.sub_type || '-'}</span>
+                      </td>
+                      <td className="number-cell">{platform.youth_count || '-'}</td>
+                      <td className="number-cell">{platform.total_members || '-'}</td>
+                      <td className="year-cell">{platform.year}</td>
+                      <td className="percent-cell">
+                        {platform.youth_count && platform.total_members 
+                          ? ((platform.youth_count / platform.total_members) * 100).toFixed(1) + '%'
+                          : '-'}
+                      </td>
+                      <td className="address-cell">{platform.address || '-'}</td>
+                      <td className="coords-cell">
+                        {platform.latitude && platform.longitude 
+                          ? `${platform.latitude.toFixed(4)}, ${platform.longitude.toFixed(4)}`
+                          : '-'}
+                      </td>
+                    </>
+                  )}
                   <td>
                     <div className="action-buttons">
                       <button 
@@ -671,13 +765,13 @@ const AdminDashboard = () => {
                       >
                         <Edit2 size={16} />
                       </button>
-                          <button 
-                            className="btn-delete" 
-                            onClick={() => handleDelete(platform.id, platform.name, platform.category)}
-                            title="Delete"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                      <button 
+                        className="btn-delete" 
+                        onClick={() => handleDelete(platform.id, platform.name, platform.category)}
+                        title="Delete"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -889,49 +983,102 @@ const AdminDashboard = () => {
             </div>
 
             <form className="add-form" onSubmit={handleSaveEdit}>
-              {/* Category Selection (only if not health) */}
-              {editForm.category && editForm.category !== 'health' && (
-                <div className="form-group">
-                  <label>Facility Category *</label>
-                  <select
-                    value={editForm.category}
-                    onChange={(e) => {
-                      const category = e.target.value;
-                      const categoryConfig = categories.find(c => c.value === category);
-                      setEditForm({
-                        ...editForm, 
-                        category,
-                        sub_type: categoryConfig?.subTypes[0] || ''
-                      });
-                    }}
-                    className="category-select-large"
-                  >
-                    {categories.map(cat => (
-                      <option key={cat.value} value={cat.value}>{cat.label}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editForm.name}
-                    onChange={(e) => setEditForm({...editForm, name: e.target.value})}
-                    placeholder="Platform name"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Type/Sub-Category *</label>
-                  {editForm.category === 'health' || !editForm.category ? (
-                    <select
-                      value={editForm.type || ''}
-                      onChange={(e) => setEditForm({...editForm, type: e.target.value})}
+              {/* Boundary Fields */}
+              {editForm.category === 'boundary' || filterCategory === 'boundaries' ? (
+                <>
+                  <div className="form-group">
+                    <label>Boundary Name *</label>
+                    <input
+                      type="text"
                       required
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                      placeholder="e.g., Harare Central"
+                    />
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Code</label>
+                      <input
+                        type="text"
+                        value={editForm.code || ''}
+                        onChange={(e) => setEditForm({...editForm, code: e.target.value})}
+                        placeholder="e.g., HRC"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Population</label>
+                      <input
+                        type="number"
+                        value={editForm.population || ''}
+                        onChange={(e) => setEditForm({...editForm, population: e.target.value})}
+                        placeholder="e.g., 80000"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Area (km²)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={editForm.area_km2 || ''}
+                      onChange={(e) => setEditForm({...editForm, area_km2: e.target.value})}
+                      placeholder="e.g., 6.0"
+                    />
+                  </div>
+
+                  <div className="form-note">
+                    <p><strong>Note:</strong> To update the boundary geometry, please upload a new GeoJSON or Shapefile via the Upload button.</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Category Selection (only if not health) */}
+                  {editForm.category && editForm.category !== 'health' && (
+                    <div className="form-group">
+                      <label>Facility Category *</label>
+                      <select
+                        value={editForm.category}
+                        onChange={(e) => {
+                          const category = e.target.value;
+                          const categoryConfig = categories.find(c => c.value === category);
+                          setEditForm({
+                            ...editForm, 
+                            category,
+                            sub_type: categoryConfig?.subTypes[0] || ''
+                          });
+                        }}
+                        className="category-select-large"
+                      >
+                        {categories.map(cat => (
+                          <option key={cat.value} value={cat.value}>{cat.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={editForm.name}
+                        onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                        placeholder="Platform name"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Type/Sub-Category *</label>
+                      {editForm.category === 'health' || !editForm.category ? (
+                        <select
+                          value={editForm.type || ''}
+                          onChange={(e) => setEditForm({...editForm, type: e.target.value})}
+                          required
                     >
                       {healthPlatformTypes.map(type => (
                         <option key={type} value={type}>{type}</option>
@@ -1063,10 +1210,43 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              <div className="form-note">
-                <p><strong>Note:</strong> For Harare, Zimbabwe coordinates are approximately:</p>
-                <p>Latitude: -17.78 to -17.87 | Longitude: 31.00 to 31.10</p>
-              </div>
+                  <div className="form-note">
+                    <p><strong>Note:</strong> For Harare, Zimbabwe coordinates are approximately:</p>
+                    <p>Latitude: -17.78 to -17.87 | Longitude: 31.00 to 31.10</p>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Latitude *</label>
+                      <input
+                        type="number"
+                        required
+                        step="0.000001"
+                        value={editForm.latitude}
+                        onChange={(e) => setEditForm({...editForm, latitude: e.target.value})}
+                        placeholder="-17.8252"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Longitude *</label>
+                      <input
+                        type="number"
+                        required
+                        step="0.000001"
+                        value={editForm.longitude}
+                        onChange={(e) => setEditForm({...editForm, longitude: e.target.value})}
+                        placeholder="31.0492"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-note">
+                    <p><strong>Note:</strong> For Harare, Zimbabwe coordinates are approximately:</p>
+                    <p>Latitude: -17.78 to -17.87 | Longitude: 31.00 to 31.10</p>
+                  </div>
+                </>
+              )}
 
               <div className="form-actions">
                 <button type="button" className="btn-cancel" onClick={handleCancelEdit}>
@@ -1080,6 +1260,21 @@ const AdminDashboard = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Boundary Upload Modal */}
+      {showBoundaryUpload && (
+        <UploadModal
+          onClose={() => {
+            setShowBoundaryUpload(false);
+            fetchBoundaries();
+          }}
+          onUploadSuccess={() => {
+            setShowBoundaryUpload(false);
+            fetchBoundaries();
+          }}
+          defaultCategory="boundaries"
+        />
       )}
     </div>
   );

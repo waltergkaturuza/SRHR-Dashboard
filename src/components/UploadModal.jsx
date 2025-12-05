@@ -3,7 +3,7 @@ import axios from 'axios';
 import { X, Upload, FileJson, AlertCircle, CheckCircle } from 'lucide-react';
 import './UploadModal.css';
 
-const UploadModal = ({ onClose, onUploadSuccess }) => {
+const UploadModal = ({ onClose, onUploadSuccess, defaultCategory = 'health' }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState(null);
@@ -12,7 +12,7 @@ const UploadModal = ({ onClose, onUploadSuccess }) => {
   
   // Upload metadata
   const [uploadMetadata, setUploadMetadata] = useState({
-    category: 'health',
+    category: defaultCategory,
     year: new Date().getFullYear(),
     district: '',
     autoDetect: true

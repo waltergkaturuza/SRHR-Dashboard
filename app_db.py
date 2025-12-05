@@ -496,26 +496,98 @@ def get_boundaries():
         return jsonify([])
 
 
-@app.route('/api/boundaries/<int:boundary_id>', methods=['DELETE'])
-def delete_boundary(boundary_id):
-    """Delete a specific boundary"""
+@app.route('/api/boundaries/<int:boundary_id>', methods=['GET', 'PUT', 'DELETE'])
+def manage_boundary(boundary_id):
+    """Get, update, or delete a specific boundary"""
     try:
         from sqlalchemy import inspect
         inspector = inspect(db.engine)
         if 'district_boundaries' not in inspector.get_table_names():
             return jsonify({"error": "Boundaries table does not exist"}), 404
         
-        delete_query = db.text("DELETE FROM district_boundaries WHERE id = :id")
-        result = db.session.execute(delete_query, {'id': boundary_id})
-        db.session.commit()
+        if request.method == 'GET':
+            # Get boundary
+            query = db.text("""
+                SELECT 
+                    id,
+                    name,
+                    code,
+                    population,
+                    area_km2,
+                    ST_AsGeoJSON(boundary) as boundary_geojson,
+                    ST_X(center_point) as center_lon,
+                    ST_Y(center_point) as center_lat
+                FROM district_boundaries
+                WHERE id = :id
+            """)
+            result = db.session.execute(query, {'id': boundary_id})
+            row = result.fetchone()
+            
+            if not row:
+                return jsonify({"error": "Boundary not found"}), 404
+            
+            import json
+            return jsonify({
+                'id': row.id,
+                'name': row.name,
+                'code': row.code,
+                'population': row.population,
+                'area_km2': float(row.area_km2) if row.area_km2 else 0,
+                'boundary': json.loads(row.boundary_geojson),
+                'center': [row.center_lon, row.center_lat] if row.center_lon and row.center_lat else None
+            })
         
-        if result.rowcount > 0:
-            return jsonify({"message": "Boundary deleted successfully"})
-        else:
-            return jsonify({"error": "Boundary not found"}), 404
+        elif request.method == 'PUT':
+            # Update boundary
+            data = request.json
+            updates = []
+            params = {'id': boundary_id}
+            
+            if 'name' in data:
+                updates.append('name = :name')
+                params['name'] = data['name']
+            if 'code' in data:
+                updates.append('code = :code')
+                params['code'] = data['code']
+            if 'population' in data:
+                updates.append('population = :population')
+                params['population'] = int(data['population']) if data['population'] else None
+            if 'area_km2' in data:
+                updates.append('area_km2 = :area_km2')
+                params['area_km2'] = float(data['area_km2']) if data['area_km2'] else None
+            
+            if not updates:
+                return jsonify({"error": "No fields to update"}), 400
+            
+            updates.append('updated_at = CURRENT_TIMESTAMP')
+            
+            update_query = db.text(f"""
+                UPDATE district_boundaries 
+                SET {', '.join(updates)}
+                WHERE id = :id
+            """)
+            
+            db.session.execute(update_query, params)
+            db.session.commit()
+            
+            return jsonify({"message": "Boundary updated successfully"})
+        
+        elif request.method == 'DELETE':
+            # Delete boundary
+            delete_query = db.text("DELETE FROM district_boundaries WHERE id = :id")
+            result = db.session.execute(delete_query, {'id': boundary_id})
+            db.session.commit()
+            
+            if result.rowcount > 0:
+                return jsonify({"message": "Boundary deleted successfully"})
+            else:
+                return jsonify({"error": "Boundary not found"}), 404
+        
     except Exception as e:
         db.session.rollback()
-        print(f"Error deleting boundary: {str(e)}")
+        print(f"Error managing boundary: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
 
