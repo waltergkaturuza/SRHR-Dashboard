@@ -487,13 +487,173 @@ def get_boundaries():
                 'population': row.population,
                 'area_km2': float(row.area_km2) if row.area_km2 else 0,
                 'boundary': json.loads(row.boundary_geojson),
-                'center': [row.center_lon, row.center_lat]
+                'center': [row.center_lon, row.center_lat] if row.center_lon and row.center_lat else None
             })
         
         return jsonify(boundaries_list)
     except Exception as e:
         print(f"Error fetching boundaries: {str(e)}")
         return jsonify([])
+
+
+@app.route('/api/upload-boundaries', methods=['POST'])
+def upload_boundaries():
+    """Upload boundary files (Polygon or MultiPolygon geometries)"""
+    if 'file' not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    
+    file = request.files['file']
+    
+    if file.filename == '':
+        return jsonify({"error": "No file selected"}), 400
+    
+    if not allowed_file(file.filename):
+        return jsonify({"error": "File type not allowed. Please upload GeoJSON, JSON, or Shapefile"}), 400
+    
+    try:
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(filepath)
+        
+        geojson_data = None
+        
+        # Process the file
+        if filename.endswith('.geojson') or filename.endswith('.json'):
+            with open(filepath, 'r', encoding='utf-8') as f:
+                geojson_data = json.load(f)
+            
+            if 'type' not in geojson_data or geojson_data['type'] != 'FeatureCollection':
+                return jsonify({"error": "Invalid GeoJSON format. Must be a FeatureCollection"}), 400
+            
+        elif filename.endswith('.shp') or filename.endswith('.zip'):
+            if filename.endswith('.zip'):
+                extract_folder = os.path.join(UPLOAD_FOLDER, 'temp_extract')
+                os.makedirs(extract_folder, exist_ok=True)
+                shutil.unpack_archive(filepath, extract_folder)
+                
+                shp_files = [f for f in os.listdir(extract_folder) if f.endswith('.shp')]
+                if not shp_files:
+                    return jsonify({"error": "No shapefile found in zip"}), 400
+                
+                shp_path = os.path.join(extract_folder, shp_files[0])
+            else:
+                shp_path = filepath
+            
+            # Read shapefile with geopandas (handles MultiPolygon automatically)
+            gdf = gpd.read_file(shp_path)
+            geojson_data = json.loads(gdf.to_json())
+            
+            if filename.endswith('.zip'):
+                shutil.rmtree(extract_folder)
+        
+        # Import boundaries into database
+        feature_count = import_boundaries_to_db(geojson_data)
+        
+        # Cleanup uploaded file
+        os.remove(filepath)
+        
+        return jsonify({
+            "message": "Boundaries uploaded successfully",
+            "filename": filename,
+            "features": feature_count
+        })
+        
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Error uploading boundaries: {error_details}")
+        return jsonify({"error": f"Error processing file: {str(e)}"}), 500
+
+
+def import_boundaries_to_db(geojson_data):
+    """Import boundary GeoJSON (Polygon/MultiPolygon) into district_boundaries table"""
+    from sqlalchemy import inspect, text
+    
+    feature_count = 0
+    
+    # Check if table exists
+    inspector = inspect(db.engine)
+    if 'district_boundaries' not in inspector.get_table_names():
+        raise Exception("district_boundaries table does not exist. Please initialize tables first.")
+    
+    for feature in geojson_data.get('features', []):
+        props = feature.get('properties', {})
+        geometry = feature.get('geometry', {})
+        
+        geometry_type = geometry.get('type', '').upper()
+        
+        # Only process Polygon and MultiPolygon geometries
+        if geometry_type not in ['POLYGON', 'MULTIPOLYGON']:
+            print(f"Skipping feature {props.get('name', 'unknown')}: geometry type {geometry_type} not supported for boundaries")
+            continue
+        
+        # Get properties
+        name = props.get('name') or props.get('NAME') or props.get('district') or props.get('DISTRICT') or f"Boundary {feature_count + 1}"
+        code = props.get('code') or props.get('CODE') or props.get('district_code')
+        population = props.get('population') or props.get('POPULATION')
+        area_km2 = props.get('area_km2') or props.get('AREA_KM2') or props.get('area')
+        
+        # Convert geometry to GeoJSON string for PostGIS
+        geometry_json = json.dumps(geometry)
+        
+        # Calculate center point from geometry using PostGIS function
+        center_query = text("""
+            SELECT 
+                ST_X(ST_Centroid(ST_GeomFromGeoJSON(:geom))) as center_lon,
+                ST_Y(ST_Centroid(ST_GeomFromGeoJSON(:geom))) as center_lat
+        """)
+        center_result = db.session.execute(center_query, {'geom': geometry_json})
+        center_row = center_result.fetchone()
+        center_lon = center_row[0] if center_row else None
+        center_lat = center_row[1] if center_row else None
+        
+        # Insert or update boundary using PostGIS ST_GeomFromGeoJSON function
+        insert_query = text("""
+            INSERT INTO district_boundaries 
+            (name, code, population, area_km2, boundary, center_point)
+            VALUES 
+            (:name, :code, :population, :area_km2, 
+             ST_GeomFromGeoJSON(:boundary_geom)::geometry(MultiPolygon, 4326), 
+             CASE WHEN :center_lon IS NOT NULL AND :center_lat IS NOT NULL 
+                  THEN ST_SetSRID(ST_MakePoint(:center_lon, :center_lat), 4326) 
+                  ELSE NULL END)
+            ON CONFLICT (name) 
+            DO UPDATE SET
+                code = EXCLUDED.code,
+                population = EXCLUDED.population,
+                area_km2 = EXCLUDED.area_km2,
+                boundary = EXCLUDED.boundary,
+                center_point = EXCLUDED.center_point,
+                updated_at = CURRENT_TIMESTAMP
+        """)
+        
+        try:
+            db.session.execute(insert_query, {
+                'name': name,
+                'code': code,
+                'population': int(population) if population else None,
+                'area_km2': float(area_km2) if area_km2 else None,
+                'boundary_geom': geometry_json,
+                'center_lon': center_lon,
+                'center_lat': center_lat
+            })
+            feature_count += 1
+        except Exception as e:
+            print(f"Error inserting boundary {name}: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
+            db.session.rollback()
+            continue
+    
+    try:
+        db.session.commit()
+        print(f"Successfully imported {feature_count} boundaries")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error committing boundaries: {str(e)}")
+        raise
+    
+    return feature_count
 
 
 @app.route('/api/district/<district_name>/facilities', methods=['GET'])
