@@ -238,6 +238,51 @@
   font-style: italic;
 }
 
+.facility-error {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: rgba(244, 67, 54, 0.1);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-radius: 6px;
+}
+
+.error-message {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.875rem;
+  color: var(--error-color, #f44336);
+  font-weight: 500;
+}
+
+.error-suggestions {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(244, 67, 54, 0.2);
+}
+
+.error-suggestions p {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.error-suggestions ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  list-style: disc;
+}
+
+.error-suggestions li {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 0.25rem 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.error-suggestions li:hover {
+  color: var(--accent-primary);
+}
+
 /* Facility Details Section */
 .facility-details {
   margin-top: 1rem;

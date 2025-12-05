@@ -157,8 +157,8 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
     };
     
     fetchBoundariesCount();
-    // Refresh boundaries count every 5 seconds to catch updates
-    const interval = setInterval(fetchBoundariesCount, 5000);
+    // Refresh boundaries count every 30 seconds to catch updates (reduced frequency)
+    const interval = setInterval(fetchBoundariesCount, 30000);
     return () => clearInterval(interval);
   }, []);
   

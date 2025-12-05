@@ -42,10 +42,14 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick, selectedFeature }) => {
 
   const handleDistrictClick = async (boundary) => {
     setSelectedDistrict(boundary.name);
+    setDistrictFacilities(null); // Clear previous data while loading
     
     try {
+      // URL encode the district name to handle spaces and special characters
+      const encodedName = encodeURIComponent(boundary.name);
       const response = await axios.get(
-        getApiUrl(`api/district/${boundary.name}/facilities?year=${selectedYear}`)
+        getApiUrl(`api/district/${encodedName}/facilities?year=${selectedYear}`),
+        { timeout: 30000 } // 30 second timeout
       );
       setDistrictFacilities(response.data);
       if (onDistrictClick) {
@@ -53,6 +57,28 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick, selectedFeature }) => {
       }
     } catch (error) {
       console.error('Error fetching district facilities:', error);
+      if (error.response?.status === 404) {
+        // District not found - show error in popup
+        setDistrictFacilities({
+          district: boundary.name,
+          year: selectedYear,
+          error: error.response?.data?.error || 'District not found',
+          suggestions: error.response?.data?.suggestions || [],
+          statistics: {},
+          facilities: [],
+          health_platforms: []
+        });
+      } else {
+        // Other error - show loading error
+        setDistrictFacilities({
+          district: boundary.name,
+          year: selectedYear,
+          error: 'Failed to load facilities. Please try again.',
+          statistics: {},
+          facilities: [],
+          health_platforms: []
+        });
+      }
     }
   };
 
@@ -471,8 +497,24 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick, selectedFeature }) => {
                     {(!districtFacilities || districtFacilities.district !== boundary.name) && (
                       <div className="loading-facilities">
                         <p>Loading facilities...</p>
-                  </div>
-                )}
+                      </div>
+                    )}
+
+                    {districtFacilities && districtFacilities.district === boundary.name && districtFacilities.error && (
+                      <div className="facility-error">
+                        <p className="error-message">{districtFacilities.error}</p>
+                        {districtFacilities.suggestions && districtFacilities.suggestions.length > 0 && (
+                          <div className="error-suggestions">
+                            <p>Did you mean:</p>
+                            <ul>
+                              {districtFacilities.suggestions.map((suggestion, idx) => (
+                                <li key={idx}>{suggestion}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
               </div>
             </Popup>
               </>

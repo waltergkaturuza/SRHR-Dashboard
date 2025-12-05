@@ -935,21 +935,46 @@ def get_district_facilities(district_name):
     year = request.args.get('year', type=int, default=get_current_year())
     
     try:
-        # First, get the boundary geometry for this district
+        # First, get the boundary geometry for this district (case-insensitive match)
+        # Also try URL-decoded name in case of encoding issues
+        from urllib.parse import unquote
+        decoded_name = unquote(district_name)
+        
         boundary_query = db.text("""
             SELECT id, name, code, population, area_km2, boundary
             FROM district_boundaries
-            WHERE name = :district_name
+            WHERE LOWER(TRIM(name)) = LOWER(TRIM(:district_name))
+               OR LOWER(TRIM(name)) = LOWER(TRIM(:decoded_name))
+            LIMIT 1
         """)
         
-        boundary_result = db.session.execute(boundary_query, {'district_name': district_name})
+        boundary_result = db.session.execute(boundary_query, {
+            'district_name': district_name,
+            'decoded_name': decoded_name
+        })
         boundary_row = boundary_result.fetchone()
         
         if not boundary_row:
+            # Try to find similar names for better error message
+            similar_query = db.text("""
+                SELECT name
+                FROM district_boundaries
+                WHERE LOWER(name) LIKE '%' || LOWER(:district_name) || '%'
+                LIMIT 5
+            """)
+            similar_result = db.session.execute(similar_query, {'district_name': district_name})
+            similar_names = [row.name for row in similar_result]
+            
+            error_msg = f'District boundary "{district_name}" not found'
+            if similar_names:
+                error_msg += f'. Did you mean: {", ".join(similar_names)}?'
+            
+            print(f"District not found: {district_name} (decoded: {decoded_name})")
             return jsonify({
                 'district': district_name,
                 'year': year,
-                'error': 'District boundary not found',
+                'error': error_msg,
+                'suggestions': similar_names,
                 'statistics': {},
                 'facilities': [],
                 'health_platforms': []
@@ -961,6 +986,7 @@ def get_district_facilities(district_name):
         
         # Get health platforms within the boundary using spatial query
         # Using ST_Contains with the actual boundary polygon (not bounding box)
+        # Optimized: Use JOIN instead of CROSS JOIN, and ensure spatial index is used
         health_query = db.text("""
             SELECT 
                 hp.id, 
@@ -973,9 +999,8 @@ def get_district_facilities(district_name):
                 ST_X(hp.location) as longitude,
                 ST_Y(hp.location) as latitude
             FROM health_platforms hp
-            CROSS JOIN district_boundaries db
-            WHERE db.id = :boundary_id
-              AND hp.year = :year
+            JOIN district_boundaries db ON db.id = :boundary_id
+            WHERE hp.year = :year
               AND ST_Contains(db.boundary, hp.location)
             ORDER BY hp.name
         """)
@@ -998,7 +1023,7 @@ def get_district_facilities(district_name):
         
         # Get all facilities within the boundary using spatial query
         # Using ST_Contains with the actual boundary polygon (not bounding box)
-        # This ensures only facilities truly inside the boundary are returned
+        # Optimized: Use JOIN instead of CROSS JOIN for better performance
         facilities_query = db.text("""
             SELECT 
                 f.id, 
@@ -1011,9 +1036,8 @@ def get_district_facilities(district_name):
                 ST_X(f.location) as longitude,
                 ST_Y(f.location) as latitude
             FROM facilities f
-            CROSS JOIN district_boundaries db
-            WHERE db.id = :boundary_id
-              AND f.year = :year
+            JOIN district_boundaries db ON db.id = :boundary_id
+            WHERE f.year = :year
               AND ST_Contains(db.boundary, f.location)
             ORDER BY f.category, f.name
         """)
