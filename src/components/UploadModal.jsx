@@ -25,7 +25,8 @@ const UploadModal = ({ onClose, onUploadSuccess, defaultCategory = 'health' }) =
     { value: 'church', label: '⛪ Church' },
     { value: 'police', label: '🚔 Police Station' },
     { value: 'shop', label: '🏪 Shop/Market' },
-    { value: 'office', label: '🏢 Government Office' }
+    { value: 'office', label: '🏢 Government Office' },
+    { value: 'boundaries', label: '🗺️ Boundaries' }
   ];
 
   const suburbs = [
@@ -87,10 +88,16 @@ const UploadModal = ({ onClose, onUploadSuccess, defaultCategory = 'health' }) =
 
     const formData = new FormData();
     formData.append('file', selectedFile);
-    formData.append('year', uploadMetadata.year);
-    formData.append('category', uploadMetadata.category);
-    if (uploadMetadata.district) {
-      formData.append('district', uploadMetadata.district);
+    
+    // Boundaries use a different endpoint and don't need year/district
+    const isBoundary = uploadMetadata.category === 'boundaries';
+    
+    if (!isBoundary) {
+      formData.append('year', uploadMetadata.year);
+      formData.append('category', uploadMetadata.category);
+      if (uploadMetadata.district) {
+        formData.append('district', uploadMetadata.district);
+      }
     }
 
     setUploading(true);
@@ -98,14 +105,20 @@ const UploadModal = ({ onClose, onUploadSuccess, defaultCategory = 'health' }) =
     setMessage('');
 
     try {
-      const response = await axios.post('/api/upload', formData, {
+      // Use different endpoint for boundaries
+      const endpoint = isBoundary ? '/api/upload-boundaries' : '/api/upload';
+      const response = await axios.post(endpoint, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
 
       setUploadStatus('success');
-      setMessage(`Successfully uploaded ${response.data.features} ${uploadMetadata.category} features from ${response.data.filename} for year ${uploadMetadata.year}`);
+      if (isBoundary) {
+        setMessage(`Successfully uploaded ${response.data.features} boundaries from ${response.data.filename}`);
+      } else {
+        setMessage(`Successfully uploaded ${response.data.features} ${uploadMetadata.category} features from ${response.data.filename} for year ${uploadMetadata.year}`);
+      }
       
       setTimeout(() => {
         onUploadSuccess();
@@ -161,7 +174,7 @@ const UploadModal = ({ onClose, onUploadSuccess, defaultCategory = 'health' }) =
             
             <div className="metadata-row">
               <div className="metadata-field">
-                <label>Facility Category *</label>
+                <label>{uploadMetadata.category === 'boundaries' ? 'Data Type *' : 'Facility Category *'}</label>
                 <select
                   value={uploadMetadata.category}
                   onChange={(e) => setUploadMetadata({...uploadMetadata, category: e.target.value})}
@@ -171,49 +184,65 @@ const UploadModal = ({ onClose, onUploadSuccess, defaultCategory = 'health' }) =
                     <option key={cat.value} value={cat.value}>{cat.label}</option>
                   ))}
                 </select>
-                <small>What type of facilities are in this file?</small>
+                <small>{uploadMetadata.category === 'boundaries' ? 'Select Boundaries to upload boundary polygons' : 'What type of facilities are in this file?'}</small>
               </div>
 
+              {uploadMetadata.category !== 'boundaries' && (
+                <div className="metadata-field">
+                  <label>Year *</label>
+                  <input
+                    type="number"
+                    min="2000"
+                    max="2100"
+                    value={uploadMetadata.year}
+                    onChange={(e) => setUploadMetadata({...uploadMetadata, year: parseInt(e.target.value)})}
+                    className="metadata-input"
+                  />
+                  <small>Which year is this data for?</small>
+                </div>
+              )}
+            </div>
+
+            {uploadMetadata.category !== 'boundaries' && (
               <div className="metadata-field">
-                <label>Year *</label>
-                <input
-                  type="number"
-                  min="2000"
-                  max="2100"
-                  value={uploadMetadata.year}
-                  onChange={(e) => setUploadMetadata({...uploadMetadata, year: parseInt(e.target.value)})}
-                  className="metadata-input"
-                />
-                <small>Which year is this data for?</small>
+                <label>Suburb/Location (Optional)</label>
+                <select
+                  value={uploadMetadata.district}
+                  onChange={(e) => setUploadMetadata({...uploadMetadata, district: e.target.value})}
+                  className="metadata-select"
+                >
+                  <option value="">Auto-detect from data</option>
+                  {suburbs.map(suburb => (
+                    <option key={suburb} value={suburb}>{suburb}</option>
+                  ))}
+                </select>
+                <small>If all facilities are in one suburb, select it here</small>
               </div>
-            </div>
-
-            <div className="metadata-field">
-              <label>Suburb/Location (Optional)</label>
-              <select
-                value={uploadMetadata.district}
-                onChange={(e) => setUploadMetadata({...uploadMetadata, district: e.target.value})}
-                className="metadata-select"
-              >
-                <option value="">Auto-detect from data</option>
-                {suburbs.map(suburb => (
-                  <option key={suburb} value={suburb}>{suburb}</option>
-                ))}
-              </select>
-              <small>If all facilities are in one suburb, select it here</small>
-            </div>
+            )}
 
             <div className="metadata-note">
               <strong>Note:</strong> The GeoJSON file should include these properties for each feature:
               <ul>
-                <li><code>name</code> - Facility name (required)</li>
-                <li><code>type</code> or <code>sub_type</code> - Specific type (e.g., "primary" for schools)</li>
-                <li><code>description</code> - Additional notes (optional)</li>
-                <li><code>district</code> - District name (optional, can set above)</li>
-                {uploadMetadata.category === 'health' && (
+                {uploadMetadata.category === 'boundaries' ? (
                   <>
-                    <li><code>youth_count</code> - Number of youth participants</li>
-                    <li><code>total_members</code> - Total committee members</li>
+                    <li><code>name</code> - Boundary/suburb name (required)</li>
+                    <li><code>code</code> or <code>Dist_Code</code> - Boundary code (optional)</li>
+                    <li><code>population</code> - Population count (optional)</li>
+                    <li><code>area_km2</code> or <code>Shape_Area</code> - Area in km² (will be converted from m² if needed)</li>
+                    <li><strong>Geometry:</strong> Must be Polygon or MultiPolygon (not Point)</li>
+                  </>
+                ) : (
+                  <>
+                    <li><code>name</code> - Facility name (required)</li>
+                    <li><code>type</code> or <code>sub_type</code> - Specific type (e.g., "primary" for schools)</li>
+                    <li><code>description</code> - Additional notes (optional)</li>
+                    <li><code>district</code> - District name (optional, can set above)</li>
+                    {uploadMetadata.category === 'health' && (
+                      <>
+                        <li><code>youth_count</code> - Number of youth participants</li>
+                        <li><code>total_members</code> - Total committee members</li>
+                      </>
+                    )}
                   </>
                 )}
               </ul>
@@ -266,7 +295,22 @@ const UploadModal = ({ onClose, onUploadSuccess, defaultCategory = 'health' }) =
           <div className="data-format-info">
             <h4>Expected Data Format (GeoJSON)</h4>
             <pre className="code-block">
-{`{
+{uploadMetadata.category === 'boundaries' ? `{
+  "type": "FeatureCollection",
+  "features": [{
+    "type": "Feature",
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [[[31.0, -17.8], [31.1, -17.8], [31.1, -17.9], [31.0, -17.9], [31.0, -17.8]]]
+    },
+    "properties": {
+      "name": "Boundary Name",
+      "code": "HRC",
+      "population": 80000,
+      "area_km2": 6.5
+    }
+  }]
+}` : `{
   "type": "FeatureCollection",
   "features": [{
     "type": "Feature",
