@@ -619,6 +619,51 @@ def delete_seed_boundaries():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/boundaries/bulk-delete', methods=['POST'])
+def bulk_delete_boundaries():
+    """Bulk delete boundaries by IDs"""
+    try:
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        if 'district_boundaries' not in inspector.get_table_names():
+            return jsonify({"error": "Boundaries table does not exist"}), 404
+        
+        data = request.json
+        if not data or 'ids' not in data:
+            return jsonify({"error": "Missing 'ids' array in request body"}), 400
+        
+        ids = data['ids']
+        if not isinstance(ids, list) or len(ids) == 0:
+            return jsonify({"error": "Invalid or empty 'ids' array"}), 400
+        
+        # Validate all IDs are integers
+        try:
+            ids = [int(id) for id in ids]
+        except (ValueError, TypeError):
+            return jsonify({"error": "All IDs must be integers"}), 400
+        
+        # Delete boundaries
+        delete_query = db.text("""
+            DELETE FROM district_boundaries 
+            WHERE id = ANY(:ids)
+        """)
+        
+        result = db.session.execute(delete_query, {'ids': ids})
+        db.session.commit()
+        
+        deleted_count = result.rowcount
+        return jsonify({
+            "message": f"Successfully deleted {deleted_count} boundar{'y' if deleted_count == 1 else 'ies'}",
+            "deleted": deleted_count
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error bulk deleting boundaries: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/api/upload-boundaries', methods=['POST'])
 def upload_boundaries():
     """Upload boundary files (Polygon or MultiPolygon geometries)"""

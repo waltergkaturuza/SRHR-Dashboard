@@ -24,6 +24,7 @@ const AdminDashboard = () => {
   const [filterCategory, setFilterCategory] = useState('health'); // health, school, church, police, shop, office, boundaries
   const [availableYears, setAvailableYears] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: 'year', direction: 'desc' });
+  const [selectedBoundaries, setSelectedBoundaries] = useState([]);
 
   // New platform form
   const [newPlatform, setNewPlatform] = useState({
@@ -184,12 +185,20 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (filterCategory === 'boundaries') {
       fetchBoundaries();
+      setSelectedBoundaries([]); // Clear selections when switching categories
     } else if (filterCategory === 'health') {
       fetchAllPlatforms();
     } else {
       fetchFacilities();
     }
-  }, [filterCategory]);
+  }, [filterCategory, filterYear, filterType]);
+
+  // Clear selections when boundaries change
+  useEffect(() => {
+    if (filterCategory === 'boundaries') {
+      setSelectedBoundaries(prev => prev.filter(id => boundaries.some(b => b.id === id)));
+    }
+  }, [boundaries, filterCategory]);
 
   useEffect(() => {
     filterAndSortPlatforms();
@@ -498,6 +507,51 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleSelectBoundary = (id) => {
+    setSelectedBoundaries(prev => 
+      prev.includes(id) 
+        ? prev.filter(bId => bId !== id)
+        : [...prev, id]
+    );
+  };
+
+  const handleSelectAllBoundaries = () => {
+    if (filterCategory === 'boundaries') {
+      const allBoundaryIds = filteredPlatforms.map(p => p.id);
+      if (selectedBoundaries.length === allBoundaryIds.length) {
+        setSelectedBoundaries([]);
+      } else {
+        setSelectedBoundaries(allBoundaryIds);
+      }
+    }
+  };
+
+  const handleBulkDeleteBoundaries = async () => {
+    if (selectedBoundaries.length === 0) {
+      alert('Please select at least one boundary to delete.');
+      return;
+    }
+
+    const count = selectedBoundaries.length;
+    const confirmMessage = `Are you sure you want to delete ${count} boundar${count === 1 ? 'y' : 'ies'}? This action cannot be undone.`;
+    
+    if (window.confirm(confirmMessage)) {
+      try {
+        await axios.post(getApiUrl('api/boundaries/bulk-delete'), {
+          ids: selectedBoundaries
+        });
+        
+        alert(`Successfully deleted ${count} boundar${count === 1 ? 'y' : 'ies'}!`);
+        setSelectedBoundaries([]);
+        await fetchBoundaries();
+      } catch (error) {
+        console.error('Error bulk deleting boundaries:', error);
+        const errorMessage = error.response?.data?.error || error.message || 'Unknown error';
+        alert(`Error deleting boundaries: ${errorMessage}`);
+      }
+    }
+  };
+
   const handleAddPlatform = async (e) => {
     e.preventDefault();
     try {
@@ -686,9 +740,34 @@ const AdminDashboard = () => {
         </div>
       ) : (
         <div className="table-container">
+          {filterCategory === 'boundaries' && selectedBoundaries.length > 0 && (
+            <div className="bulk-actions-bar">
+              <span className="selected-count">
+                {selectedBoundaries.length} boundar{selectedBoundaries.length === 1 ? 'y' : 'ies'} selected
+              </span>
+              <button 
+                className="btn-bulk-delete" 
+                onClick={handleBulkDeleteBoundaries}
+                title="Delete selected boundaries"
+              >
+                <Trash2 size={18} />
+                Delete Selected ({selectedBoundaries.length})
+              </button>
+            </div>
+          )}
           <table className="data-table">
             <thead>
               <tr>
+                {filterCategory === 'boundaries' && (
+                  <th style={{ width: '50px' }}>
+                    <input
+                      type="checkbox"
+                      checked={filteredPlatforms.length > 0 && selectedBoundaries.length === filteredPlatforms.length}
+                      onChange={handleSelectAllBoundaries}
+                      title="Select all boundaries"
+                    />
+                  </th>
+                )}
                 <th onClick={() => handleSort('id')}>
                   ID {sortConfig.key === 'id' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
@@ -732,6 +811,16 @@ const AdminDashboard = () => {
             <tbody>
               {filteredPlatforms.map(platform => (
                 <tr key={platform.id}>
+                  {filterCategory === 'boundaries' && (
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedBoundaries.includes(platform.id)}
+                        onChange={() => handleSelectBoundary(platform.id)}
+                        title={`Select ${platform.name}`}
+                      />
+                    </td>
+                  )}
                   <td>{platform.id}</td>
                   <td className="name-cell">{platform.name}</td>
                   {filterCategory === 'boundaries' ? (
