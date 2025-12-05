@@ -751,19 +751,34 @@ def import_boundaries_to_db(geojson_data):
         source_srid = None
         
         if geometry.get('coordinates'):
-            if geometry_type == 'POLYGON':
-                sample_coord = geometry['coordinates'][0][0][0] if geometry['coordinates'][0][0] else None
-            elif geometry_type == 'MULTIPOLYGON':
-                sample_coord = geometry['coordinates'][0][0][0][0] if geometry['coordinates'][0][0][0] else None
+            try:
+                if geometry_type == 'POLYGON':
+                    # Polygon: coordinates[0] = outer ring, coordinates[0][0] = first point [lon, lat]
+                    if (geometry['coordinates'] and len(geometry['coordinates']) > 0 and
+                        geometry['coordinates'][0] and len(geometry['coordinates'][0]) > 0 and
+                        geometry['coordinates'][0][0] and len(geometry['coordinates'][0][0]) >= 2):
+                        sample_coord = geometry['coordinates'][0][0]  # This should be [lon, lat]
+                elif geometry_type == 'MULTIPOLYGON':
+                    # MultiPolygon: coordinates[0] = first polygon, coordinates[0][0] = outer ring, coordinates[0][0][0] = first point [lon, lat]
+                    if (geometry['coordinates'] and len(geometry['coordinates']) > 0 and
+                        geometry['coordinates'][0] and len(geometry['coordinates'][0]) > 0 and
+                        geometry['coordinates'][0][0] and len(geometry['coordinates'][0][0]) > 0 and
+                        geometry['coordinates'][0][0][0] and len(geometry['coordinates'][0][0][0]) >= 2):
+                        sample_coord = geometry['coordinates'][0][0][0]  # This should be [lon, lat]
+            except (IndexError, TypeError) as e:
+                print(f"Error extracting sample coordinate for {name}: {e}")
+                sample_coord = None
         
         # Detect if coordinates are in projected system (large numbers) vs lat/lon
-        if sample_coord:
+        if sample_coord and isinstance(sample_coord, (list, tuple)) and len(sample_coord) >= 2:
+            lon = sample_coord[0]
+            lat = sample_coord[1]
             # If coordinates are very large (> 1000), likely projected (not lat/lon)
-            if abs(sample_coord[0]) > 1000 or abs(sample_coord[1]) > 1000:
+            if abs(lon) > 1000 or abs(lat) > 1000:
                 needs_transform = True
                 # Try to detect UTM zone (common for Zimbabwe is UTM Zone 35S or 36S)
                 # Zimbabwe coordinates typically fall in these ranges
-                if 200000 < abs(sample_coord[0]) < 1000000 and 7000000 < abs(sample_coord[1]) < 9000000:
+                if 200000 < abs(lon) < 1000000 and 7000000 < abs(lat) < 9000000:
                     # Likely UTM Zone 35S (EPSG:32735) or 36S (EPSG:32736)
                     # Default to 35S for Harare area
                     source_srid = 32735
