@@ -92,6 +92,31 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
   
+  // Fetch boundaries count
+  useEffect(() => {
+    const fetchBoundariesCount = async () => {
+      try {
+        const response = await axios.get(getApiUrl('api/boundaries'));
+        const boundariesCount = response.data && Array.isArray(response.data) ? response.data.length : 0;
+        setLayerCounts(prev => ({
+          ...prev,
+          boundaries: boundariesCount
+        }));
+      } catch (error) {
+        console.error('Error fetching boundaries count:', error);
+        setLayerCounts(prev => ({
+          ...prev,
+          boundaries: 0
+        }));
+      }
+    };
+    
+    fetchBoundariesCount();
+    // Refresh boundaries count every 5 seconds to catch updates
+    const interval = setInterval(fetchBoundariesCount, 5000);
+    return () => clearInterval(interval);
+  }, []);
+  
   // Fetch facilities data
   useEffect(() => {
     const fetchFacilities = async () => {
@@ -131,17 +156,42 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
           
           console.log('Facility counts by category:', counts);
           console.log('Police stations found:', normalized.filter(f => f.category === 'police'));
-          setLayerCounts(counts);
+          setLayerCounts(prev => ({
+            ...prev,
+            ...counts
+          }));
         } else {
           console.warn('Facilities API returned non-array data:', response.data);
           setFacilities([]);
-          setLayerCounts({});
+          setLayerCounts(prev => ({
+            ...prev,
+            health: 0,
+            clinic: 0,
+            schoolPrimary: 0,
+            schoolSecondary: 0,
+            schoolTertiary: 0,
+            church: 0,
+            police: 0,
+            shop: 0,
+            office: 0
+          }));
         }
       } catch (error) {
         console.error('Error fetching facilities:', error);
         console.error('Error details:', error.response?.data || error.message);
         setFacilities([]);
-        setLayerCounts({});
+        setLayerCounts(prev => ({
+          ...prev,
+          health: 0,
+          clinic: 0,
+          schoolPrimary: 0,
+          schoolSecondary: 0,
+          schoolTertiary: 0,
+          church: 0,
+          police: 0,
+          shop: 0,
+          office: 0
+        }));
       }
     };
     

@@ -15,7 +15,7 @@ const LayerControl = ({ visibleLayers, onToggleLayer, layerCounts }) => {
         </svg>
       ),
       color: '#ffeb3b',
-      count: 6
+      count: layerCounts?.boundaries || 0
     },
     {
       id: 'health',

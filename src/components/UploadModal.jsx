@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { getApiUrl } from '../config';
 import { X, Upload, FileJson, AlertCircle, CheckCircle } from 'lucide-react';
 import './UploadModal.css';
 
@@ -106,7 +107,8 @@ const UploadModal = ({ onClose, onUploadSuccess, defaultCategory = 'health' }) =
 
     try {
       // Use different endpoint for boundaries
-      const endpoint = isBoundary ? '/api/upload-boundaries' : '/api/upload';
+      const endpoint = isBoundary ? getApiUrl('api/upload-boundaries') : getApiUrl('api/upload');
+      console.log('Uploading to:', endpoint, 'isBoundary:', isBoundary);
       const response = await axios.post(endpoint, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
