@@ -9,6 +9,7 @@ import ChartPanel from './components/ChartPanel';
 import UploadModal from './components/UploadModal';
 import AdminDashboard from './components/AdminDashboard';
 import Navigation from './components/Navigation';
+import ErrorBoundary from './components/ErrorBoundary';
 import './App.css';
 
 function DashboardView() {
@@ -99,16 +100,18 @@ function DashboardView() {
 
 function App() {
   return (
-    <Router>
-      <div className="app">
-        <Navigation />
-        <Routes>
-          <Route path="/" element={<DashboardView />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </div>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <div className="app">
+          <Navigation />
+          <Routes>
+            <Route path="/" element={<DashboardView />} />
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+      </Router>
+    </ErrorBoundary>
   );
 }
 
