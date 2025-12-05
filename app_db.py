@@ -771,10 +771,16 @@ def import_boundaries_to_db(geojson_data):
         
         # Detect if coordinates are in projected system (large numbers) vs lat/lon
         if sample_coord and isinstance(sample_coord, (list, tuple)) and len(sample_coord) >= 2:
-            lon = sample_coord[0]
-            lat = sample_coord[1]
+            try:
+                lon = float(sample_coord[0])
+                lat = float(sample_coord[1])
+            except (ValueError, TypeError, IndexError):
+                print(f"Warning: Could not parse coordinates for {name}. Skipping coordinate transformation check.")
+                lon = None
+                lat = None
+            
             # If coordinates are very large (> 1000), likely projected (not lat/lon)
-            if abs(lon) > 1000 or abs(lat) > 1000:
+            if lon is not None and lat is not None and (abs(lon) > 1000 or abs(lat) > 1000):
                 needs_transform = True
                 # Try to detect UTM zone (common for Zimbabwe is UTM Zone 35S or 36S)
                 # Zimbabwe coordinates typically fall in these ranges
