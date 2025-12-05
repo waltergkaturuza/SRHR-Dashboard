@@ -960,6 +960,7 @@ def get_district_facilities(district_name):
         boundary_area = float(boundary_row.area_km2) if boundary_row.area_km2 else None
         
         # Get health platforms within the boundary using spatial query
+        # Using ST_Contains with the actual boundary polygon (not bounding box)
         health_query = db.text("""
             SELECT 
                 hp.id, 
@@ -971,10 +972,12 @@ def get_district_facilities(district_name):
                 hp.description,
                 ST_X(hp.location) as longitude,
                 ST_Y(hp.location) as latitude
-            FROM health_platforms hp, district_boundaries db
+            FROM health_platforms hp
+            CROSS JOIN district_boundaries db
             WHERE db.id = :boundary_id
               AND hp.year = :year
               AND ST_Contains(db.boundary, hp.location)
+            ORDER BY hp.name
         """)
         
         health_result = db.session.execute(health_query, {'boundary_id': boundary_id, 'year': year})
@@ -994,6 +997,8 @@ def get_district_facilities(district_name):
             })
         
         # Get all facilities within the boundary using spatial query
+        # Using ST_Contains with the actual boundary polygon (not bounding box)
+        # This ensures only facilities truly inside the boundary are returned
         facilities_query = db.text("""
             SELECT 
                 f.id, 
@@ -1005,10 +1010,12 @@ def get_district_facilities(district_name):
                 f.district,
                 ST_X(f.location) as longitude,
                 ST_Y(f.location) as latitude
-            FROM facilities f, district_boundaries db
+            FROM facilities f
+            CROSS JOIN district_boundaries db
             WHERE db.id = :boundary_id
               AND f.year = :year
               AND ST_Contains(db.boundary, f.location)
+            ORDER BY f.category, f.name
         """)
         
         facilities_result = db.session.execute(facilities_query, {'boundary_id': boundary_id, 'year': year})

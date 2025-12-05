@@ -14,8 +14,11 @@
 }
 
 .district-popup {
-  min-width: 280px;
-  max-width: 350px;
+  min-width: 400px;
+  max-width: 600px;
+  max-height: 70vh;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .district-popup h3 {
@@ -240,8 +243,6 @@
   margin-top: 1rem;
   padding-top: 1rem;
   border-top: 2px solid var(--border-color);
-  max-height: 400px;
-  overflow-y: auto;
 }
 
 .facility-details h5 {
@@ -252,34 +253,44 @@
 }
 
 .facility-group {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .facility-group-title {
   display: block;
   font-size: 0.85rem;
   color: var(--text-primary);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
   padding: 0.5rem;
   background-color: var(--bg-secondary);
   border-radius: 4px;
+  font-weight: 600;
 }
 
 .facility-list-detailed {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
 }
 
 .facility-item {
-  padding: 0.5rem;
+  padding: 0.75rem;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 0.8rem;
+  transition: all 0.2s;
+  break-inside: avoid;
+}
+
+.facility-item:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .facility-name {
@@ -323,6 +334,37 @@
   font-size: 0.75rem;
   margin-top: 0.25rem;
   line-height: 1.4;
+}
+
+/* Popup Scrollbar */
+.district-popup::-webkit-scrollbar {
+  width: 8px;
+}
+
+.district-popup::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+  border-radius: 4px;
+}
+
+.district-popup::-webkit-scrollbar-thumb {
+  background: var(--border-hover);
+  border-radius: 4px;
+}
+
+.district-popup::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Responsive columns */
+@media (max-width: 600px) {
+  .facility-list-detailed {
+    grid-template-columns: 1fr;
+  }
+  
+  .district-popup {
+    min-width: 300px;
+    max-width: 90vw;
+  }
 }
 
 
