@@ -931,7 +931,7 @@ def import_boundaries_to_db(geojson_data):
 
 @app.route('/api/district/<district_name>/facilities', methods=['GET'])
 def get_district_facilities(district_name):
-    """Get all facilities within a specific district"""
+    """Get all facilities within a specific district with comprehensive statistics"""
     year = request.args.get('year', type=int, default=get_current_year())
     
     try:
@@ -943,8 +943,9 @@ def get_district_facilities(district_name):
         """)
         
         health_result = db.session.execute(health_query, {'district': district_name, 'year': year})
+        health_platforms = [dict(row._mapping) for row in health_result]
         
-        # Get other facilities in district
+        # Get all facilities in district
         facilities_query = db.text("""
             SELECT id, name, category, sub_type
             FROM facilities
@@ -952,31 +953,69 @@ def get_district_facilities(district_name):
         """)
         
         facilities_result = db.session.execute(facilities_query, {'district': district_name, 'year': year})
+        facilities = [dict(row._mapping) for row in facilities_result]
+        
+        # Count by main category (aggregate all sub-types)
+        category_count_query = db.text("""
+            SELECT category, COUNT(*) as count
+            FROM facilities
+            WHERE district = :district AND year = :year
+            GROUP BY category
+        """)
+        
+        category_result = db.session.execute(category_count_query, {'district': district_name, 'year': year})
+        category_counts = {row.category: row.count for row in category_result}
+        
+        # Count by sub-type for schools (to show primary, secondary, tertiary separately)
+        school_subtype_query = db.text("""
+            SELECT sub_type, COUNT(*) as count
+            FROM facilities
+            WHERE district = :district AND year = :year AND category = 'school'
+            GROUP BY sub_type
+        """)
+        
+        school_subtype_result = db.session.execute(school_subtype_query, {'district': district_name, 'year': year})
+        school_subtypes = {row.sub_type: row.count for row in school_subtype_result if row.sub_type}
+        
+        # Count health clinics by sub-type
+        clinic_subtype_query = db.text("""
+            SELECT sub_type, COUNT(*) as count
+            FROM facilities
+            WHERE district = :district AND year = :year AND category = 'health'
+            GROUP BY sub_type
+        """)
+        
+        clinic_subtype_result = db.session.execute(clinic_subtype_query, {'district': district_name, 'year': year})
+        clinic_subtypes = {row.sub_type: row.count for row in clinic_subtype_result if row.sub_type}
         
         summary = {
             'district': district_name,
             'year': year,
-            'health_platforms': [dict(row._mapping) for row in health_result],
-            'facilities': [dict(row._mapping) for row in facilities_result],
-            'counts': {}
+            'health_platforms': health_platforms,
+            'facilities': facilities,
+            'statistics': {
+                'health_platforms': len(health_platforms),
+                'clinics': category_counts.get('health', 0),
+                'schools': category_counts.get('school', 0),
+                'churches': category_counts.get('church', 0),
+                'police': category_counts.get('police', 0),
+                'shops': category_counts.get('shop', 0),
+                'offices': category_counts.get('office', 0),
+                'school_primary': school_subtypes.get('primary', 0),
+                'school_secondary': school_subtypes.get('secondary', 0),
+                'school_tertiary': school_subtypes.get('tertiary', 0),
+                'clinic_pharmacy': clinic_subtypes.get('pharmacy', 0),
+                'clinic_hospital': clinic_subtypes.get('hospital', 0),
+                'clinic_clinic': clinic_subtypes.get('clinic', 0),
+                'total_facilities': len(facilities) + len(health_platforms)
+            }
         }
-        
-        # Count by category
-        count_query = db.text("""
-            SELECT category, sub_type, COUNT(*) as count
-            FROM facilities
-            WHERE district = :district AND year = :year
-            GROUP BY category, sub_type
-        """)
-        
-        count_result = db.session.execute(count_query, {'district': district_name, 'year': year})
-        for row in count_result:
-            key = f"{row.category}_{row.sub_type}" if row.sub_type else row.category
-            summary['counts'][key] = row.count
         
         return jsonify(summary)
     except Exception as e:
         print(f"Error fetching district facilities: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
 

@@ -14,7 +14,8 @@
 }
 
 .district-popup {
-  min-width: 250px;
+  min-width: 280px;
+  max-width: 350px;
 }
 
 .district-popup h3 {
@@ -107,6 +108,134 @@
 .facility-list em {
   color: var(--text-muted);
 }
+
+/* Enhanced Statistics Display */
+.facility-statistics {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.stat-category {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.5rem;
+}
+
+.stat-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+
+.stat-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.stat-title {
+  flex: 1;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.stat-count {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--accent-primary);
+  background-color: var(--accent-bg);
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  min-width: 2rem;
+  text-align: center;
+}
+
+.stat-subitems {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.stat-subitem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  padding: 0.2rem 0.5rem;
+  background-color: var(--bg-primary);
+  border-radius: 4px;
+}
+
+.stat-subitem span:first-child {
+  color: var(--text-secondary);
+}
+
+.stat-subitem span:last-child {
+  font-weight: 600;
+  color: var(--accent-primary);
+}
+
+.stat-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background-color: var(--accent-bg);
+  border: 2px solid var(--accent-primary);
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.total-label {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.total-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent-primary);
+}
+
+.no-facilities {
+  margin-top: 1rem;
+  padding: 1rem;
+  text-align: center;
+  background-color: var(--bg-secondary);
+  border-radius: 6px;
+  border: 1px dashed var(--border-color);
+}
+
+.no-facilities p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.loading-facilities {
+  margin-top: 1rem;
+  padding: 0.5rem;
+  text-align: center;
+}
+
+.loading-facilities p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+
 
 
 

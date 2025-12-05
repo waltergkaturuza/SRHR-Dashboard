@@ -218,42 +218,158 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick }) => {
                     <div className="district-info">
                       {boundary.code && <p><strong>Code:</strong> {boundary.code}</p>}
                       <p><strong>Population:</strong> {boundary.population?.toLocaleString() || 'N/A'}</p>
-                      {boundary.area_km2 && <p><strong>Area:</strong> {boundary.area_km2} km²</p>}
+                      {boundary.area_km2 && <p><strong>Area:</strong> {boundary.area_km2.toFixed(2)} km²</p>}
                     </div>
 
                     {districtFacilities && districtFacilities.district === boundary.name && (
                       <div className="district-facilities">
-                        <h4>Facilities in this District:</h4>
+                        <h4>Facilities Statistics ({districtFacilities.year || selectedYear}):</h4>
                         
-                        <div className="facility-summary">
-                          <div className="summary-item">
-                            <span className="summary-label">🏥 Health Platforms:</span>
-                            <span className="summary-value">{districtFacilities.health_platforms?.length || 0}</span>
-                          </div>
-                          
-                          {Object.entries(districtFacilities.counts || {}).map(([key, count]) => (
-                            <div key={key} className="summary-item">
-                              <span className="summary-label">
-                                {key.replace('_', ' ').charAt(0).toUpperCase() + key.slice(1).replace('_', ' ')}:
-                              </span>
-                              <span className="summary-value">{count}</span>
+                        {districtFacilities.statistics && (
+                          <div className="facility-statistics">
+                            {/* Health Platforms */}
+                            <div className="stat-category">
+                              <div className="stat-header">
+                                <span className="stat-icon">🏥</span>
+                                <span className="stat-title">Health Platforms</span>
+                                <span className="stat-count">{districtFacilities.statistics.health_platforms || 0}</span>
+                              </div>
                             </div>
-                          ))}
-                        </div>
 
-                        {districtFacilities.health_platforms && districtFacilities.health_platforms.length > 0 && (
-                          <div className="facility-list">
-                            <strong>Health Platforms:</strong>
-                            <ul>
-                              {districtFacilities.health_platforms.slice(0, 5).map((hp, idx) => (
-                                <li key={idx}>{hp.name} ({hp.category})</li>
-                              ))}
-                              {districtFacilities.health_platforms.length > 5 && (
-                                <li><em>... and {districtFacilities.health_platforms.length - 5} more</em></li>
-                              )}
-                            </ul>
+                            {/* Health Clinics */}
+                            {(districtFacilities.statistics.clinics > 0 || districtFacilities.statistics.clinic_pharmacy > 0 || 
+                              districtFacilities.statistics.clinic_hospital > 0 || districtFacilities.statistics.clinic_clinic > 0) && (
+                              <div className="stat-category">
+                                <div className="stat-header">
+                                  <span className="stat-icon">🏥</span>
+                                  <span className="stat-title">Health Clinics</span>
+                                  <span className="stat-count">{districtFacilities.statistics.clinics || 0}</span>
+                                </div>
+                                {(districtFacilities.statistics.clinic_pharmacy > 0 || 
+                                  districtFacilities.statistics.clinic_hospital > 0 || 
+                                  districtFacilities.statistics.clinic_clinic > 0) && (
+                                  <div className="stat-subitems">
+                                    {districtFacilities.statistics.clinic_clinic > 0 && (
+                                      <div className="stat-subitem">
+                                        <span>Clinics:</span>
+                                        <span>{districtFacilities.statistics.clinic_clinic}</span>
+                                      </div>
+                                    )}
+                                    {districtFacilities.statistics.clinic_hospital > 0 && (
+                                      <div className="stat-subitem">
+                                        <span>Hospitals:</span>
+                                        <span>{districtFacilities.statistics.clinic_hospital}</span>
+                                      </div>
+                                    )}
+                                    {districtFacilities.statistics.clinic_pharmacy > 0 && (
+                                      <div className="stat-subitem">
+                                        <span>Pharmacies:</span>
+                                        <span>{districtFacilities.statistics.clinic_pharmacy}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Schools */}
+                            {districtFacilities.statistics.schools > 0 && (
+                              <div className="stat-category">
+                                <div className="stat-header">
+                                  <span className="stat-icon">🎓</span>
+                                  <span className="stat-title">Schools</span>
+                                  <span className="stat-count">{districtFacilities.statistics.schools || 0}</span>
+                                </div>
+                                {(districtFacilities.statistics.school_primary > 0 || 
+                                  districtFacilities.statistics.school_secondary > 0 || 
+                                  districtFacilities.statistics.school_tertiary > 0) && (
+                                  <div className="stat-subitems">
+                                    {districtFacilities.statistics.school_primary > 0 && (
+                                      <div className="stat-subitem">
+                                        <span>Primary:</span>
+                                        <span>{districtFacilities.statistics.school_primary}</span>
+                                      </div>
+                                    )}
+                                    {districtFacilities.statistics.school_secondary > 0 && (
+                                      <div className="stat-subitem">
+                                        <span>Secondary:</span>
+                                        <span>{districtFacilities.statistics.school_secondary}</span>
+                                      </div>
+                                    )}
+                                    {districtFacilities.statistics.school_tertiary > 0 && (
+                                      <div className="stat-subitem">
+                                        <span>Tertiary:</span>
+                                        <span>{districtFacilities.statistics.school_tertiary}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Churches */}
+                            {districtFacilities.statistics.churches > 0 && (
+                              <div className="stat-category">
+                                <div className="stat-header">
+                                  <span className="stat-icon">⛪</span>
+                                  <span className="stat-title">Churches</span>
+                                  <span className="stat-count">{districtFacilities.statistics.churches || 0}</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Police Stations */}
+                            {districtFacilities.statistics.police > 0 && (
+                              <div className="stat-category">
+                                <div className="stat-header">
+                                  <span className="stat-icon">🚔</span>
+                                  <span className="stat-title">Police Stations</span>
+                                  <span className="stat-count">{districtFacilities.statistics.police || 0}</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Shops */}
+                            {districtFacilities.statistics.shops > 0 && (
+                              <div className="stat-category">
+                                <div className="stat-header">
+                                  <span className="stat-icon">🏪</span>
+                                  <span className="stat-title">Shops</span>
+                                  <span className="stat-count">{districtFacilities.statistics.shops || 0}</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Offices */}
+                            {districtFacilities.statistics.offices > 0 && (
+                              <div className="stat-category">
+                                <div className="stat-header">
+                                  <span className="stat-icon">🏢</span>
+                                  <span className="stat-title">Offices</span>
+                                  <span className="stat-count">{districtFacilities.statistics.offices || 0}</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Total Summary */}
+                            <div className="stat-total">
+                              <span className="total-label">Total Facilities:</span>
+                              <span className="total-value">{districtFacilities.statistics.total_facilities || 0}</span>
+                            </div>
                           </div>
                         )}
+
+                        {(!districtFacilities.statistics || districtFacilities.statistics.total_facilities === 0) && (
+                          <div className="no-facilities">
+                            <p>No facilities found in this district for {districtFacilities.year || selectedYear}.</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {(!districtFacilities || districtFacilities.district !== boundary.name) && (
+                      <div className="loading-facilities">
+                        <p>Loading facilities...</p>
                       </div>
                     )}
                   </div>
