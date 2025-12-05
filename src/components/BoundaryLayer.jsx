@@ -13,6 +13,8 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick }) => {
       try {
         const response = await axios.get(getApiUrl('api/boundaries'));
         if (response.data && Array.isArray(response.data)) {
+          console.log(`BoundaryLayer: Fetched ${response.data.length} boundaries`);
+          console.log('Sample boundary:', response.data[0]);
           setBoundaries(response.data);
         }
       } catch (error) {
@@ -42,7 +44,10 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick }) => {
   return (
     <>
       {boundaries.map((boundary) => {
-        if (!boundary.boundary || !boundary.boundary.coordinates) return null;
+        if (!boundary.boundary || !boundary.boundary.coordinates) {
+          console.warn(`BoundaryLayer: Skipping ${boundary?.name || 'unknown'} - missing boundary or coordinates`);
+          return null;
+        }
 
         const geometryType = boundary.boundary.type;
         const isSelected = selectedDistrict === boundary.name;
@@ -120,6 +125,7 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick }) => {
 
         // Skip if no valid positions found
         if (!polygonPositions || polygonPositions.length === 0) {
+          console.warn(`BoundaryLayer: Skipping ${boundary.name} - no valid polygon positions after processing`);
           return null;
         }
 

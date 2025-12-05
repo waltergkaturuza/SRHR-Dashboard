@@ -808,32 +808,9 @@ def import_boundaries_to_db(geojson_data):
                 else:
                     print(f"Warning: Geometry for {name} appears to be in a projected coordinate system but SRID could not be determined.")
         
-        # Calculate center point from geometry using PostGIS function
-        # If geometry needs transformation, PostGIS will handle it if SRID is set correctly
-        center_query = text("""
-            SELECT 
-                ST_X(ST_Centroid(ST_GeomFromGeoJSON(:geom))) as center_lon,
-                ST_Y(ST_Centroid(ST_GeomFromGeoJSON(:geom))) as center_lat
-        """)
-        
-        try:
-            center_result = db.session.execute(center_query, {'geom': geometry_json})
-            center_row = center_result.fetchone()
-            center_lon = center_row[0] if center_row else None
-            center_lat = center_row[1] if center_row else None
-            
-            # Validate coordinates are in valid lat/lon range
-            if center_lon and center_lat:
-                if abs(center_lon) > 180 or abs(center_lat) > 90:
-                    print(f"Warning: Center coordinates for {name} are outside valid WGS84 range. May need coordinate transformation.")
-                    # Try to use geometry centroid anyway, but log warning
-        except Exception as e:
-            print(f"Error calculating center for {name}: {str(e)}")
-            center_lon = None
-            center_lat = None
-        
         # Insert or update boundary using PostGIS
         # Transform geometry if needed, otherwise assume WGS84
+        # Calculate center AFTER transformation to ensure WGS84 coordinates
         if needs_transform and source_srid:
             # Transform from source CRS to WGS84
             insert_query = text("""
@@ -842,9 +819,7 @@ def import_boundaries_to_db(geojson_data):
                 VALUES 
                 (:name, :code, :population, :area_km2, 
                  ST_Force2D(ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(:boundary_geom), :source_srid), 4326))::geometry(MultiPolygon, 4326), 
-                 CASE WHEN :center_lon IS NOT NULL AND :center_lat IS NOT NULL 
-                      THEN ST_SetSRID(ST_MakePoint(:center_lon, :center_lat), 4326) 
-                      ELSE NULL END)
+                 ST_Centroid(ST_Force2D(ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(:boundary_geom), :source_srid), 4326))))
                 ON CONFLICT (name) 
                 DO UPDATE SET
                     code = EXCLUDED.code,
@@ -860,9 +835,7 @@ def import_boundaries_to_db(geojson_data):
                 'population': int(population) if population else None,
                 'area_km2': area_km2,
                 'boundary_geom': geometry_json,
-                'source_srid': source_srid,
-                'center_lon': center_lon,
-                'center_lat': center_lat
+                'source_srid': source_srid
             }
         else:
             # Assume already in WGS84
@@ -872,9 +845,7 @@ def import_boundaries_to_db(geojson_data):
                 VALUES 
                 (:name, :code, :population, :area_km2, 
                  ST_Force2D(ST_GeomFromGeoJSON(:boundary_geom))::geometry(MultiPolygon, 4326), 
-                 CASE WHEN :center_lon IS NOT NULL AND :center_lat IS NOT NULL 
-                      THEN ST_SetSRID(ST_MakePoint(:center_lon, :center_lat), 4326) 
-                      ELSE NULL END)
+                 ST_Centroid(ST_Force2D(ST_GeomFromGeoJSON(:boundary_geom))))
                 ON CONFLICT (name) 
                 DO UPDATE SET
                     code = EXCLUDED.code,
@@ -889,9 +860,7 @@ def import_boundaries_to_db(geojson_data):
                 'code': code,
                 'population': int(population) if population else None,
                 'area_km2': area_km2,
-                'boundary_geom': geometry_json,
-                'center_lon': center_lon,
-                'center_lat': center_lat
+                'boundary_geom': geometry_json
             }
         
         try:
