@@ -178,9 +178,9 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick }) => {
               .filter(hole => hole.length >= 3);
             validatedPositions.push(...holes);
           }
-          
-          return (
-            <Polygon
+
+        return (
+          <Polygon
               key={`${boundary.id}-${polyIndex}`}
               positions={validatedPositions}
             pathOptions={{
@@ -208,21 +208,25 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick }) => {
           >
             {polyIndex === 0 && (
               <>
-                <Tooltip permanent={isSelected} direction="center" className="district-tooltip">
-                  <strong>{boundary.name}</strong>
-                </Tooltip>
-                
-                <Popup>
-                  <div className="district-popup">
-                    <h3>{boundary.name}</h3>
-                    <div className="district-info">
+            <Tooltip permanent={isSelected} direction="center" className="district-tooltip">
+              <strong>{boundary.name}</strong>
+            </Tooltip>
+            
+            <Popup>
+              <div className="district-popup">
+                <h3>{boundary.name}</h3>
+                <div className="district-info">
                       {boundary.code && <p><strong>Code:</strong> {boundary.code}</p>}
-                      <p><strong>Population:</strong> {boundary.population?.toLocaleString() || 'N/A'}</p>
-                      {boundary.area_km2 && <p><strong>Area:</strong> {boundary.area_km2.toFixed(2)} km²</p>}
-                    </div>
+                      <p><strong>Population:</strong> {
+                        (districtFacilities?.boundary_info?.population || boundary.population)?.toLocaleString() || 'N/A'
+                      }</p>
+                      <p><strong>Area:</strong> {
+                        (districtFacilities?.boundary_info?.area_km2 || boundary.area_km2)?.toFixed(2) || 'N/A'
+                      } km²</p>
+                </div>
 
-                    {districtFacilities && districtFacilities.district === boundary.name && (
-                      <div className="district-facilities">
+                {districtFacilities && districtFacilities.district === boundary.name && (
+                  <div className="district-facilities">
                         <h4>Facilities Statistics ({districtFacilities.year || selectedYear}):</h4>
                         
                         {districtFacilities.statistics && (
@@ -234,8 +238,8 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick }) => {
                                 <span className="stat-title">Health Platforms</span>
                                 <span className="stat-count">{districtFacilities.statistics.health_platforms || 0}</span>
                               </div>
-                            </div>
-
+                      </div>
+                      
                             {/* Health Clinics */}
                             {(districtFacilities.statistics.clinics > 0 || districtFacilities.statistics.clinic_pharmacy > 0 || 
                               districtFacilities.statistics.clinic_hospital > 0 || districtFacilities.statistics.clinic_clinic > 0) && (
@@ -267,9 +271,9 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick }) => {
                                         <span>{districtFacilities.statistics.clinic_pharmacy}</span>
                                       </div>
                                     )}
-                                  </div>
+                        </div>
                                 )}
-                              </div>
+                    </div>
                             )}
 
                             {/* Schools */}
@@ -300,8 +304,8 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick }) => {
                                       <div className="stat-subitem">
                                         <span>Tertiary:</span>
                                         <span>{districtFacilities.statistics.school_tertiary}</span>
-                                      </div>
-                                    )}
+                      </div>
+                    )}
                                   </div>
                                 )}
                               </div>
@@ -359,6 +363,88 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick }) => {
                           </div>
                         )}
 
+                        {/* Individual Facility Lists */}
+                        {districtFacilities.facilities && districtFacilities.facilities.length > 0 && (
+                          <div className="facility-details">
+                            <h5>Facility Details:</h5>
+                            
+                            {/* Health Platforms List */}
+                            {districtFacilities.health_platforms && districtFacilities.health_platforms.length > 0 && (
+                              <div className="facility-group">
+                                <strong className="facility-group-title">🏥 Health Platforms ({districtFacilities.health_platforms.length}):</strong>
+                                <ul className="facility-list-detailed">
+                                  {districtFacilities.health_platforms.map((hp) => (
+                                    <li key={hp.id} className="facility-item">
+                                      <div className="facility-name">{hp.name}</div>
+                                      <div className="facility-meta">
+                                        <span className="facility-type">{hp.type || hp.category}</span>
+                                        {hp.youth_count !== null && hp.total_members !== null && (
+                                          <span className="facility-stats">
+                                            {hp.youth_count}/{hp.total_members} youth
+                                          </span>
+                                        )}
+                                      </div>
+                                      {hp.address && <div className="facility-address">{hp.address}</div>}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* Facilities by Category */}
+                            {['health', 'school', 'church', 'police', 'shop', 'office'].map(category => {
+                              const categoryFacilities = districtFacilities.facilities.filter(f => f.category === category);
+                              if (categoryFacilities.length === 0) return null;
+                              
+                              const categoryIcons = {
+                                'health': '🏥',
+                                'school': '🎓',
+                                'church': '⛪',
+                                'police': '🚔',
+                                'shop': '🏪',
+                                'office': '🏢'
+                              };
+                              
+                              const categoryLabels = {
+                                'health': 'Health Clinics',
+                                'school': 'Schools',
+                                'church': 'Churches',
+                                'police': 'Police Stations',
+                                'shop': 'Shops',
+                                'office': 'Offices'
+                              };
+                              
+                              return (
+                                <div key={category} className="facility-group">
+                                  <strong className="facility-group-title">
+                                    {categoryIcons[category]} {categoryLabels[category]} ({categoryFacilities.length}):
+                                  </strong>
+                                  <ul className="facility-list-detailed">
+                                    {categoryFacilities.map((facility) => (
+                                      <li key={facility.id} className="facility-item">
+                                        <div className="facility-name">{facility.name}</div>
+                                        <div className="facility-meta">
+                                          {facility.sub_type && (
+                                            <span className="facility-type">
+                                              {facility.sub_type.charAt(0).toUpperCase() + facility.sub_type.slice(1)}
+                                            </span>
+                                          )}
+                                        </div>
+                                        {facility.address && (
+                                          <div className="facility-address">{facility.address}</div>
+                                        )}
+                                        {facility.description && (
+                                          <div className="facility-description">{facility.description}</div>
+                                        )}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
                         {(!districtFacilities.statistics || districtFacilities.statistics.total_facilities === 0) && (
                           <div className="no-facilities">
                             <p>No facilities found in this district for {districtFacilities.year || selectedYear}.</p>
@@ -370,14 +456,14 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick }) => {
                     {(!districtFacilities || districtFacilities.district !== boundary.name) && (
                       <div className="loading-facilities">
                         <p>Loading facilities...</p>
-                      </div>
-                    )}
                   </div>
-                </Popup>
+                )}
+              </div>
+            </Popup>
               </>
             )}
-            </Polygon>
-          );
+          </Polygon>
+        );
         });
       }).flat().filter(Boolean)}
     </>

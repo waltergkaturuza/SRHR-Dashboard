@@ -931,66 +931,130 @@ def import_boundaries_to_db(geojson_data):
 
 @app.route('/api/district/<district_name>/facilities', methods=['GET'])
 def get_district_facilities(district_name):
-    """Get all facilities within a specific district with comprehensive statistics"""
+    """Get all facilities within a specific district using spatial queries"""
     year = request.args.get('year', type=int, default=get_current_year())
     
     try:
-        # Get health platforms in district
+        # First, get the boundary geometry for this district
+        boundary_query = db.text("""
+            SELECT id, name, code, population, area_km2, boundary
+            FROM district_boundaries
+            WHERE name = :district_name
+        """)
+        
+        boundary_result = db.session.execute(boundary_query, {'district_name': district_name})
+        boundary_row = boundary_result.fetchone()
+        
+        if not boundary_row:
+            return jsonify({
+                'district': district_name,
+                'year': year,
+                'error': 'District boundary not found',
+                'statistics': {},
+                'facilities': [],
+                'health_platforms': []
+            }), 404
+        
+        boundary_id = boundary_row.id
+        boundary_population = boundary_row.population
+        boundary_area = float(boundary_row.area_km2) if boundary_row.area_km2 else None
+        
+        # Get health platforms within the boundary using spatial query
         health_query = db.text("""
-            SELECT id, name, type as category, youth_count, total_members
-            FROM health_platforms
-            WHERE district = :district AND year = :year
+            SELECT 
+                hp.id, 
+                hp.name, 
+                hp.type as category, 
+                hp.youth_count, 
+                hp.total_members,
+                hp.address,
+                hp.description,
+                ST_X(hp.location) as longitude,
+                ST_Y(hp.location) as latitude
+            FROM health_platforms hp, district_boundaries db
+            WHERE db.id = :boundary_id
+              AND hp.year = :year
+              AND ST_Contains(db.boundary, hp.location)
         """)
         
-        health_result = db.session.execute(health_query, {'district': district_name, 'year': year})
-        health_platforms = [dict(row._mapping) for row in health_result]
+        health_result = db.session.execute(health_query, {'boundary_id': boundary_id, 'year': year})
+        health_platforms = []
+        for row in health_result:
+            health_platforms.append({
+                'id': row.id,
+                'name': row.name,
+                'category': row.category,
+                'type': row.category,
+                'youth_count': row.youth_count,
+                'total_members': row.total_members,
+                'address': row.address,
+                'description': row.description,
+                'latitude': float(row.latitude) if row.latitude else None,
+                'longitude': float(row.longitude) if row.longitude else None
+            })
         
-        # Get all facilities in district
+        # Get all facilities within the boundary using spatial query
         facilities_query = db.text("""
-            SELECT id, name, category, sub_type
-            FROM facilities
-            WHERE district = :district AND year = :year
+            SELECT 
+                f.id, 
+                f.name, 
+                f.category, 
+                f.sub_type,
+                f.address,
+                f.description,
+                f.district,
+                ST_X(f.location) as longitude,
+                ST_Y(f.location) as latitude
+            FROM facilities f, district_boundaries db
+            WHERE db.id = :boundary_id
+              AND f.year = :year
+              AND ST_Contains(db.boundary, f.location)
         """)
         
-        facilities_result = db.session.execute(facilities_query, {'district': district_name, 'year': year})
-        facilities = [dict(row._mapping) for row in facilities_result]
+        facilities_result = db.session.execute(facilities_query, {'boundary_id': boundary_id, 'year': year})
+        facilities = []
+        for row in facilities_result:
+            facilities.append({
+                'id': row.id,
+                'name': row.name,
+                'category': row.category,
+                'sub_type': row.sub_type,
+                'address': row.address,
+                'description': row.description,
+                'district': row.district,
+                'latitude': float(row.latitude) if row.latitude else None,
+                'longitude': float(row.longitude) if row.longitude else None
+            })
         
-        # Count by main category (aggregate all sub-types)
-        category_count_query = db.text("""
-            SELECT category, COUNT(*) as count
-            FROM facilities
-            WHERE district = :district AND year = :year
-            GROUP BY category
-        """)
+        # Calculate statistics
+        category_counts = {}
+        school_subtypes = {}
+        clinic_subtypes = {}
         
-        category_result = db.session.execute(category_count_query, {'district': district_name, 'year': year})
-        category_counts = {row.category: row.count for row in category_result}
+        for facility in facilities:
+            category = facility['category']
+            category_counts[category] = category_counts.get(category, 0) + 1
+            
+            if category == 'school' and facility.get('sub_type'):
+                sub_type = facility['sub_type']
+                school_subtypes[sub_type] = school_subtypes.get(sub_type, 0) + 1
+            
+            if category == 'health' and facility.get('sub_type'):
+                sub_type = facility['sub_type']
+                clinic_subtypes[sub_type] = clinic_subtypes.get(sub_type, 0) + 1
         
-        # Count by sub-type for schools (to show primary, secondary, tertiary separately)
-        school_subtype_query = db.text("""
-            SELECT sub_type, COUNT(*) as count
-            FROM facilities
-            WHERE district = :district AND year = :year AND category = 'school'
-            GROUP BY sub_type
-        """)
-        
-        school_subtype_result = db.session.execute(school_subtype_query, {'district': district_name, 'year': year})
-        school_subtypes = {row.sub_type: row.count for row in school_subtype_result if row.sub_type}
-        
-        # Count health clinics by sub-type
-        clinic_subtype_query = db.text("""
-            SELECT sub_type, COUNT(*) as count
-            FROM facilities
-            WHERE district = :district AND year = :year AND category = 'health'
-            GROUP BY sub_type
-        """)
-        
-        clinic_subtype_result = db.session.execute(clinic_subtype_query, {'district': district_name, 'year': year})
-        clinic_subtypes = {row.sub_type: row.count for row in clinic_subtype_result if row.sub_type}
+        # Calculate total population from facilities if available
+        total_population = boundary_population  # Use boundary population as base
         
         summary = {
             'district': district_name,
+            'district_code': boundary_row.code,
             'year': year,
+            'boundary_info': {
+                'population': int(boundary_population) if boundary_population else None,
+                'area_km2': boundary_area,
+                'code': boundary_row.code
+            },
             'health_platforms': health_platforms,
             'facilities': facilities,
             'statistics': {
