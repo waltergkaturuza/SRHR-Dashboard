@@ -496,6 +496,57 @@ def get_boundaries():
         return jsonify([])
 
 
+@app.route('/api/boundaries/<int:boundary_id>', methods=['DELETE'])
+def delete_boundary(boundary_id):
+    """Delete a specific boundary"""
+    try:
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        if 'district_boundaries' not in inspector.get_table_names():
+            return jsonify({"error": "Boundaries table does not exist"}), 404
+        
+        delete_query = db.text("DELETE FROM district_boundaries WHERE id = :id")
+        result = db.session.execute(delete_query, {'id': boundary_id})
+        db.session.commit()
+        
+        if result.rowcount > 0:
+            return jsonify({"message": "Boundary deleted successfully"})
+        else:
+            return jsonify({"error": "Boundary not found"}), 404
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting boundary: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/boundaries/delete-seed', methods=['POST'])
+def delete_seed_boundaries():
+    """Delete hardcoded seed boundaries (Mbare, Borrowdale, Harare Central, Glen View, Highfield, Avondale)"""
+    try:
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        if 'district_boundaries' not in inspector.get_table_names():
+            return jsonify({"error": "Boundaries table does not exist"}), 404
+        
+        delete_query = db.text("""
+            DELETE FROM district_boundaries 
+            WHERE name IN ('Mbare', 'Borrowdale', 'Harare Central', 'Glen View', 'Highfield', 'Avondale')
+        """)
+        
+        result = db.session.execute(delete_query)
+        db.session.commit()
+        
+        deleted_count = result.rowcount
+        return jsonify({
+            "message": f"Deleted {deleted_count} seed boundaries",
+            "deleted": deleted_count
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting seed boundaries: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/api/upload-boundaries', methods=['POST'])
 def upload_boundaries():
     """Upload boundary files (Polygon or MultiPolygon geometries)"""
