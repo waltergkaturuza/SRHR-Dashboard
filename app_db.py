@@ -587,45 +587,146 @@ def import_boundaries_to_db(geojson_data):
             print(f"Skipping feature {props.get('name', 'unknown')}: geometry type {geometry_type} not supported for boundaries")
             continue
         
-        # Get properties
-        name = props.get('name') or props.get('NAME') or props.get('district') or props.get('DISTRICT') or f"Boundary {feature_count + 1}"
-        code = props.get('code') or props.get('CODE') or props.get('district_code')
-        population = props.get('population') or props.get('POPULATION')
-        area_km2 = props.get('area_km2') or props.get('AREA_KM2') or props.get('area')
+        # Get properties - handle various property name formats
+        name = (props.get('name') or props.get('NAME') or props.get('name_1') or 
+                props.get('district') or props.get('DISTRICT') or 
+                props.get('Suburb') or props.get('SUBURB') or 
+                f"Boundary {feature_count + 1}")
+        
+        code = (props.get('code') or props.get('CODE') or 
+                props.get('Dist_Code') or props.get('DIST_CODE') or
+                props.get('district_code') or props.get('DISTRICT_CODE'))
+        
+        population = (props.get('population') or props.get('POPULATION') or 
+                     props.get('Population') or props.get('POP'))
+        
+        # Handle area - could be in m², km², or other units
+        area_raw = (props.get('area_km2') or props.get('AREA_KM2') or 
+                   props.get('area') or props.get('AREA') or
+                   props.get('Shape_Area') or props.get('SHAPE_AREA'))
+        
+        # Convert area to km² if it's likely in square meters (Shape_Area from shapefiles)
+        area_km2 = None
+        if area_raw:
+            try:
+                area_value = float(area_raw)
+                # If area is very large (> 1000), likely in m², convert to km²
+                if area_value > 1000:
+                    area_km2 = area_value / 1000000  # Convert m² to km²
+                else:
+                    area_km2 = area_value  # Assume already in km²
+            except (ValueError, TypeError):
+                area_km2 = None
         
         # Convert geometry to GeoJSON string for PostGIS
         geometry_json = json.dumps(geometry)
         
+        # Check if geometry needs coordinate transformation
+        # If CRS is not WGS84 (EPSG:4326), we need to transform
+        crs = geojson_data.get('crs', {})
+        needs_transform = False
+        
+        # Check if coordinates look like they're in a projected system (large numbers)
+        if geometry.get('coordinates'):
+            sample_coord = None
+            if geometry_type == 'POLYGON':
+                sample_coord = geometry['coordinates'][0][0][0] if geometry['coordinates'][0][0] else None
+            elif geometry_type == 'MULTIPOLYGON':
+                sample_coord = geometry['coordinates'][0][0][0][0] if geometry['coordinates'][0][0][0] else None
+            
+            # If coordinates are very large (> 1000), likely projected (not lat/lon)
+            if sample_coord and abs(sample_coord[0]) > 1000:
+                needs_transform = True
+                print(f"Warning: Geometry for {name} appears to be in a projected coordinate system. Coordinates may need transformation to WGS84.")
+        
         # Calculate center point from geometry using PostGIS function
+        # If geometry needs transformation, PostGIS will handle it if SRID is set correctly
         center_query = text("""
             SELECT 
                 ST_X(ST_Centroid(ST_GeomFromGeoJSON(:geom))) as center_lon,
                 ST_Y(ST_Centroid(ST_GeomFromGeoJSON(:geom))) as center_lat
         """)
-        center_result = db.session.execute(center_query, {'geom': geometry_json})
-        center_row = center_result.fetchone()
-        center_lon = center_row[0] if center_row else None
-        center_lat = center_row[1] if center_row else None
         
-        # Insert or update boundary using PostGIS ST_GeomFromGeoJSON function
-        insert_query = text("""
-            INSERT INTO district_boundaries 
-            (name, code, population, area_km2, boundary, center_point)
-            VALUES 
-            (:name, :code, :population, :area_km2, 
-             ST_GeomFromGeoJSON(:boundary_geom)::geometry(MultiPolygon, 4326), 
-             CASE WHEN :center_lon IS NOT NULL AND :center_lat IS NOT NULL 
-                  THEN ST_SetSRID(ST_MakePoint(:center_lon, :center_lat), 4326) 
-                  ELSE NULL END)
-            ON CONFLICT (name) 
-            DO UPDATE SET
-                code = EXCLUDED.code,
-                population = EXCLUDED.population,
-                area_km2 = EXCLUDED.area_km2,
-                boundary = EXCLUDED.boundary,
-                center_point = EXCLUDED.center_point,
-                updated_at = CURRENT_TIMESTAMP
-        """)
+        try:
+            center_result = db.session.execute(center_query, {'geom': geometry_json})
+            center_row = center_result.fetchone()
+            center_lon = center_row[0] if center_row else None
+            center_lat = center_row[1] if center_row else None
+            
+            # Validate coordinates are in valid lat/lon range
+            if center_lon and center_lat:
+                if abs(center_lon) > 180 or abs(center_lat) > 90:
+                    print(f"Warning: Center coordinates for {name} are outside valid WGS84 range. May need coordinate transformation.")
+                    # Try to use geometry centroid anyway, but log warning
+        except Exception as e:
+            print(f"Error calculating center for {name}: {str(e)}")
+            center_lon = None
+            center_lat = None
+        
+        # Insert or update boundary using PostGIS
+        # Transform geometry if needed, otherwise assume WGS84
+        if needs_transform and source_srid:
+            # Transform from source CRS to WGS84
+            insert_query = text("""
+                INSERT INTO district_boundaries 
+                (name, code, population, area_km2, boundary, center_point)
+                VALUES 
+                (:name, :code, :population, :area_km2, 
+                 ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(:boundary_geom), :source_srid), 4326)::geometry(MultiPolygon, 4326), 
+                 CASE WHEN :center_lon IS NOT NULL AND :center_lat IS NOT NULL 
+                      THEN ST_SetSRID(ST_MakePoint(:center_lon, :center_lat), 4326) 
+                      ELSE NULL END)
+                ON CONFLICT (name) 
+                DO UPDATE SET
+                    code = EXCLUDED.code,
+                    population = EXCLUDED.population,
+                    area_km2 = EXCLUDED.area_km2,
+                    boundary = EXCLUDED.boundary,
+                    center_point = EXCLUDED.center_point,
+                    updated_at = CURRENT_TIMESTAMP
+            """)
+            insert_params = {
+                'name': name,
+                'code': code,
+                'population': int(population) if population else None,
+                'area_km2': area_km2,
+                'boundary_geom': geometry_json,
+                'source_srid': source_srid,
+                'center_lon': center_lon,
+                'center_lat': center_lat
+            }
+        else:
+            # Assume already in WGS84
+            insert_query = text("""
+                INSERT INTO district_boundaries 
+                (name, code, population, area_km2, boundary, center_point)
+                VALUES 
+                (:name, :code, :population, :area_km2, 
+                 ST_GeomFromGeoJSON(:boundary_geom)::geometry(MultiPolygon, 4326), 
+                 CASE WHEN :center_lon IS NOT NULL AND :center_lat IS NOT NULL 
+                      THEN ST_SetSRID(ST_MakePoint(:center_lon, :center_lat), 4326) 
+                      ELSE NULL END)
+                ON CONFLICT (name) 
+                DO UPDATE SET
+                    code = EXCLUDED.code,
+                    population = EXCLUDED.population,
+                    area_km2 = EXCLUDED.area_km2,
+                    boundary = EXCLUDED.boundary,
+                    center_point = EXCLUDED.center_point,
+                    updated_at = CURRENT_TIMESTAMP
+            """)
+            insert_params = {
+                'name': name,
+                'code': code,
+                'population': int(population) if population else None,
+                'area_km2': area_km2,
+                'boundary_geom': geometry_json,
+                'center_lon': center_lon,
+                'center_lat': center_lat
+            }
+        
+        try:
+            db.session.execute(insert_query, insert_params)
         
         try:
             db.session.execute(insert_query, {
