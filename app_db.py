@@ -736,17 +736,6 @@ def import_boundaries_to_db(geojson_data):
         
         try:
             db.session.execute(insert_query, insert_params)
-        
-        try:
-            db.session.execute(insert_query, {
-                'name': name,
-                'code': code,
-                'population': int(population) if population else None,
-                'area_km2': float(area_km2) if area_km2 else None,
-                'boundary_geom': geometry_json,
-                'center_lon': center_lon,
-                'center_lat': center_lat
-            })
             feature_count += 1
         except Exception as e:
             print(f"Error inserting boundary {name}: {str(e)}")
