@@ -1083,6 +1083,252 @@ def get_district_facilities(district_name):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/search', methods=['GET'])
+def advanced_search():
+    """Advanced search endpoint with autocomplete and filters"""
+    query = request.args.get('q', '').strip()
+    suburb = request.args.get('suburb', '').strip()
+    facility_type = request.args.get('facility_type', '').strip()
+    category = request.args.get('category', '').strip()
+    min_population = request.args.get('min_population', type=int)
+    max_population = request.args.get('max_population', type=int)
+    year = request.args.get('year', type=int, default=get_current_year())
+    limit = request.args.get('limit', type=int, default=50)
+    
+    try:
+        results = {
+            'boundaries': [],
+            'health_platforms': [],
+            'facilities': [],
+            'suggestions': []
+        }
+        
+        # Search boundaries/suburbs
+        if query or suburb:
+            boundary_query = db.text("""
+                SELECT id, name, code, population, area_km2
+                FROM district_boundaries
+                WHERE (:query = '' OR LOWER(name) LIKE '%' || LOWER(:query) || '%')
+                  AND (:suburb = '' OR LOWER(name) = LOWER(:suburb))
+                ORDER BY 
+                    CASE WHEN LOWER(name) = LOWER(:query) THEN 1
+                         WHEN LOWER(name) LIKE LOWER(:query) || '%' THEN 2
+                         ELSE 3 END,
+                    name
+                LIMIT :limit
+            """)
+            boundary_result = db.session.execute(boundary_query, {
+                'query': query if not suburb else suburb,
+                'suburb': suburb,
+                'limit': limit
+            })
+            results['boundaries'] = [{
+                'id': row.id,
+                'name': row.name,
+                'code': row.code,
+                'population': int(row.population) if row.population else None,
+                'area_km2': float(row.area_km2) if row.area_km2 else None,
+                'type': 'boundary'
+            } for row in boundary_result]
+        
+        # Search health platforms
+        health_conditions = ["hp.year = :year"]
+        health_params = {'year': year, 'limit': limit}
+        
+        if query:
+            health_conditions.append("(LOWER(hp.name) LIKE '%' || LOWER(:query) || '%' OR LOWER(hp.type) LIKE '%' || LOWER(:query) || '%')")
+            health_params['query'] = query
+        
+        if suburb:
+            health_conditions.append("hp.district = :suburb")
+            health_params['suburb'] = suburb
+        
+        if min_population or max_population:
+            # For health platforms, use total_members as population proxy
+            if min_population:
+                health_conditions.append("hp.total_members >= :min_pop")
+                health_params['min_pop'] = min_population
+            if max_population:
+                health_conditions.append("hp.total_members <= :max_pop")
+                health_params['max_pop'] = max_population
+        
+        health_query = db.text(f"""
+            SELECT hp.id, hp.name, hp.type, hp.youth_count, hp.total_members, 
+                   hp.address, hp.district,
+                   ST_X(hp.location) as longitude,
+                   ST_Y(hp.location) as latitude
+            FROM health_platforms hp
+            WHERE {' AND '.join(health_conditions)}
+            ORDER BY 
+                CASE WHEN :query = '' THEN 1
+                     WHEN LOWER(hp.name) LIKE LOWER(:query) || '%' THEN 2
+                     ELSE 3 END,
+                hp.name
+            LIMIT :limit
+        """)
+        
+        health_result = db.session.execute(health_query, health_params)
+        results['health_platforms'] = [{
+            'id': row.id,
+            'name': row.name,
+            'type': row.type,
+            'category': 'health_platform',
+            'youth_count': row.youth_count,
+            'total_members': row.total_members,
+            'address': row.address,
+            'district': row.district,
+            'latitude': float(row.latitude) if row.latitude else None,
+            'longitude': float(row.longitude) if row.longitude else None
+        } for row in health_result]
+        
+        # Search facilities
+        facility_conditions = ["f.year = :year"]
+        facility_params = {'year': year, 'limit': limit}
+        
+        if query:
+            facility_conditions.append("(LOWER(f.name) LIKE '%' || LOWER(:query) || '%' OR LOWER(f.category) LIKE '%' || LOWER(:query) || '%' OR LOWER(f.sub_type) LIKE '%' || LOWER(:query) || '%')")
+            facility_params['query'] = query
+        
+        if suburb:
+            facility_conditions.append("f.district = :suburb")
+            facility_params['suburb'] = suburb
+        
+        if category:
+            facility_conditions.append("f.category = :category")
+            facility_params['category'] = category
+        
+        if facility_type:
+            facility_conditions.append("f.sub_type = :facility_type")
+            facility_params['facility_type'] = facility_type
+        
+        facility_query = db.text(f"""
+            SELECT f.id, f.name, f.category, f.sub_type, f.address, f.description, f.district,
+                   ST_X(f.location) as longitude,
+                   ST_Y(f.location) as latitude
+            FROM facilities f
+            WHERE {' AND '.join(facility_conditions)}
+            ORDER BY 
+                CASE WHEN :query = '' THEN 1
+                     WHEN LOWER(f.name) LIKE LOWER(:query) || '%' THEN 2
+                     ELSE 3 END,
+                f.name
+            LIMIT :limit
+        """)
+        
+        facility_result = db.session.execute(facility_query, facility_params)
+        results['facilities'] = [{
+            'id': row.id,
+            'name': row.name,
+            'category': row.category,
+            'sub_type': row.sub_type,
+            'address': row.address,
+            'description': row.description,
+            'district': row.district,
+            'latitude': float(row.latitude) if row.latitude else None,
+            'longitude': float(row.longitude) if row.longitude else None
+        } for row in facility_result]
+        
+        # Generate suggestions for autocomplete
+        if query and len(query) >= 2:
+            suggestions = []
+            
+            # Boundary suggestions
+            boundary_suggestions = db.text("""
+                SELECT DISTINCT name
+                FROM district_boundaries
+                WHERE LOWER(name) LIKE LOWER(:query) || '%'
+                ORDER BY name
+                LIMIT 5
+            """)
+            boundary_sug_result = db.session.execute(boundary_suggestions, {'query': query})
+            suggestions.extend([{'text': row.name, 'type': 'suburb'} for row in boundary_sug_result])
+            
+            # Facility name suggestions
+            facility_suggestions = db.text("""
+                SELECT DISTINCT name
+            FROM facilities
+                WHERE LOWER(name) LIKE LOWER(:query) || '%'
+                ORDER BY name
+                LIMIT 5
+            """)
+            facility_sug_result = db.session.execute(facility_suggestions, {'query': query})
+            suggestions.extend([{'text': row.name, 'type': 'facility'} for row in facility_sug_result])
+            
+            # Health platform suggestions
+            platform_suggestions = db.text("""
+                SELECT DISTINCT name
+                FROM health_platforms
+                WHERE LOWER(name) LIKE LOWER(:query) || '%'
+                ORDER BY name
+                LIMIT 5
+            """)
+            platform_sug_result = db.session.execute(platform_suggestions, {'query': query})
+            suggestions.extend([{'text': row.name, 'type': 'health_platform'} for row in platform_sug_result])
+            
+            results['suggestions'] = suggestions[:10]  # Limit to 10 total suggestions
+        
+        # Calculate total counts
+        results['total'] = len(results['boundaries']) + len(results['health_platforms']) + len(results['facilities'])
+        
+        return jsonify(results)
+    except Exception as e:
+        print(f"Error in advanced search: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/search/autocomplete', methods=['GET'])
+def search_autocomplete():
+    """Quick autocomplete endpoint for search suggestions"""
+    query = request.args.get('q', '').strip()
+    limit = request.args.get('limit', type=int, default=10)
+    
+    if len(query) < 2:
+        return jsonify({'suggestions': []})
+    
+    try:
+        suggestions = []
+        
+        # Boundaries
+        boundary_query = db.text("""
+            SELECT name, 'suburb' as type
+            FROM district_boundaries
+            WHERE LOWER(name) LIKE LOWER(:query) || '%'
+            ORDER BY name
+            LIMIT :limit
+        """)
+        boundary_result = db.session.execute(boundary_query, {'query': query, 'limit': limit})
+        suggestions.extend([{'text': row.name, 'type': row.type} for row in boundary_result])
+        
+        # Facilities
+        facility_query = db.text("""
+            SELECT DISTINCT name, category as type
+            FROM facilities
+            WHERE LOWER(name) LIKE LOWER(:query) || '%'
+            ORDER BY name
+            LIMIT :limit
+        """)
+        facility_result = db.session.execute(facility_query, {'query': query, 'limit': limit})
+        suggestions.extend([{'text': row.name, 'type': row.type} for row in facility_result])
+        
+        # Health platforms
+        platform_query = db.text("""
+            SELECT DISTINCT name, type
+            FROM health_platforms
+            WHERE LOWER(name) LIKE LOWER(:query) || '%'
+            ORDER BY name
+            LIMIT :limit
+        """)
+        platform_result = db.session.execute(platform_query, {'query': query, 'limit': limit})
+        suggestions.extend([{'text': row.name, 'type': row.type} for row in platform_result])
+        
+        return jsonify({'suggestions': suggestions[:limit]})
+    except Exception as e:
+        print(f"Error in autocomplete: {str(e)}")
+        return jsonify({'suggestions': []})
+
+
 @app.route('/api/facilities', methods=['GET'])
 def get_facilities():
     """Get all community facilities (schools, churches, police, shops, offices)"""

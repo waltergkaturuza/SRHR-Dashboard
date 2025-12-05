@@ -69,6 +69,7 @@ function DashboardView() {
           geospatialData={geospatialData}
           selectedFeature={selectedFeature}
           onFeatureSelect={handleFeatureClick}
+          selectedYear={selectedYear}
         />
         
         <div className="main-content">
