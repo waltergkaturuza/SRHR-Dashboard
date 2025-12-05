@@ -201,9 +201,9 @@ const Sidebar = ({ geospatialData, selectedFeature, onFeatureSelect, selectedYea
           ))}
         </div>
       );
-    } else {
+    } else if (hasGeospatialData) {
       // Render default geospatial data
-      const filteredFeatures = (geospatialData?.features || []).filter(feature =>
+      const filteredFeatures = geospatialData.features.filter(feature =>
         feature.properties.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         feature.properties.type.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -212,6 +212,9 @@ const Sidebar = ({ geospatialData, selectedFeature, onFeatureSelect, selectedYea
         return (
           <div className="no-results">
             <p>No locations match your search</p>
+            {!hasGeospatialData && (
+              <p className="no-results-hint">Start typing to search across all facilities and boundaries</p>
+            )}
           </div>
         );
       }
@@ -268,23 +271,21 @@ const Sidebar = ({ geospatialData, selectedFeature, onFeatureSelect, selectedYea
           </div>
         );
       });
+    } else {
+      // No geospatial data and no search results
+      return (
+        <div className="no-results">
+          <p>No data available</p>
+          <p className="no-results-hint">Use the search above to find facilities and boundaries</p>
+        </div>
+      );
     }
   };
 
-  if (!geospatialData || !geospatialData.features) {
-    return (
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <h2>District Locations</h2>
-        </div>
-        <div className="sidebar-content">
-          <p className="no-data">No data available</p>
-        </div>
-      </aside>
-    );
-  }
+  // Always show search functionality, even if no geospatial data
+  const hasGeospatialData = geospatialData && geospatialData.features;
 
-  const features = geospatialData.features || [];
+  const features = hasGeospatialData ? geospatialData.features : [];
   const resultCount = searchResults ? searchResults.total : features.length;
 
   return (
