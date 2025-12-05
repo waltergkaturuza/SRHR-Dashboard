@@ -67,12 +67,20 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick }) => {
           return null;
         }
 
+        // Skip if no valid positions found
+        if (!polygonPositions || polygonPositions.length === 0) {
+          return null;
+        }
+
         // Render each polygon (for MultiPolygon, render multiple Polygon components)
         // Popup and Tooltip only on the first polygon
-        return polygonPositions.map((positions, polyIndex) => (
-          <Polygon
-            key={`${boundary.id}-${polyIndex}`}
-            positions={positions}
+        return polygonPositions.map((positions, polyIndex) => {
+          if (!positions || positions.length === 0) return null;
+          
+          return (
+            <Polygon
+              key={`${boundary.id}-${polyIndex}`}
+              positions={positions}
             pathOptions={{
               color: isSelected ? '#00d4ff' : '#ffeb3b',
               weight: isSelected ? 3 : 2,
@@ -150,9 +158,10 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick }) => {
                 </Popup>
               </>
             )}
-          </Polygon>
-        ));
-      }).flat()}
+            </Polygon>
+          );
+        });
+      }).flat().filter(Boolean)}
     </>
   );
 };
