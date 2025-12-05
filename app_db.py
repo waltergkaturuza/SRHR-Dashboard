@@ -841,7 +841,7 @@ def import_boundaries_to_db(geojson_data):
                 (name, code, population, area_km2, boundary, center_point)
                 VALUES 
                 (:name, :code, :population, :area_km2, 
-                 ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(:boundary_geom), :source_srid), 4326)::geometry(MultiPolygon, 4326), 
+                 ST_Force2D(ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(:boundary_geom), :source_srid), 4326))::geometry(MultiPolygon, 4326), 
                  CASE WHEN :center_lon IS NOT NULL AND :center_lat IS NOT NULL 
                       THEN ST_SetSRID(ST_MakePoint(:center_lon, :center_lat), 4326) 
                       ELSE NULL END)
