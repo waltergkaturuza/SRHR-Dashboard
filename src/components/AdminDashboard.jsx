@@ -467,21 +467,26 @@ const AdminDashboard = () => {
   const handleDelete = async (id, name, category) => {
     if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
       try {
-        // Determine if it's a health platform or facility based on current filter category
-        // This is more reliable than checking individual platform category
-        const isHealthPlatform = filterCategory === 'health';
-        
-        if (isHealthPlatform) {
-          await axios.delete(getApiUrl(`api/platform/${id}`));
+        // Check if it's a boundary first
+        if (filterCategory === 'boundaries' || category === 'boundary') {
+          await axios.delete(getApiUrl(`api/boundaries/${id}`));
+          await fetchBoundaries();
         } else {
-          await axios.delete(getApiUrl(`api/facility/${id}`));
-        }
-        
-        // Refresh data based on current filter
-        if (filterCategory === 'health') {
-          await fetchAllPlatforms();
-        } else {
-          await fetchFacilities();
+          // Determine if it's a health platform or facility based on current filter category
+          const isHealthPlatform = filterCategory === 'health';
+          
+          if (isHealthPlatform) {
+            await axios.delete(getApiUrl(`api/platform/${id}`));
+          } else {
+            await axios.delete(getApiUrl(`api/facility/${id}`));
+          }
+          
+          // Refresh data based on current filter
+          if (filterCategory === 'health') {
+            await fetchAllPlatforms();
+          } else {
+            await fetchFacilities();
+          }
         }
         
         alert('Record deleted successfully!');
