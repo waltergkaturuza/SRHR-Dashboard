@@ -741,6 +741,22 @@ def import_boundaries_to_db(geojson_data):
             except (ValueError, TypeError):
                 area_km2 = None
         
+        # Strip Z dimension from coordinates if present (convert 3D to 2D)
+        def strip_z_dimension(coords):
+            """Recursively remove Z dimension from coordinate arrays"""
+            if isinstance(coords, (list, tuple)):
+                if len(coords) > 0 and isinstance(coords[0], (int, float)):
+                    # This is a coordinate pair/triple - return only first 2 elements
+                    return coords[:2]
+                else:
+                    # This is a nested array - process recursively
+                    return [strip_z_dimension(coord) for coord in coords]
+            return coords
+        
+        # Remove Z dimension from geometry coordinates
+        if geometry.get('coordinates'):
+            geometry['coordinates'] = strip_z_dimension(geometry['coordinates'])
+        
         # Convert geometry to GeoJSON string for PostGIS
         geometry_json = json.dumps(geometry)
         
@@ -855,7 +871,7 @@ def import_boundaries_to_db(geojson_data):
                 (name, code, population, area_km2, boundary, center_point)
                 VALUES 
                 (:name, :code, :population, :area_km2, 
-                 ST_GeomFromGeoJSON(:boundary_geom)::geometry(MultiPolygon, 4326), 
+                 ST_Force2D(ST_GeomFromGeoJSON(:boundary_geom))::geometry(MultiPolygon, 4326), 
                  CASE WHEN :center_lon IS NOT NULL AND :center_lat IS NOT NULL 
                       THEN ST_SetSRID(ST_MakePoint(:center_lon, :center_lat), 4326) 
                       ELSE NULL END)
