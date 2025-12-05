@@ -621,23 +621,32 @@ def import_boundaries_to_db(geojson_data):
         # Convert geometry to GeoJSON string for PostGIS
         geometry_json = json.dumps(geometry)
         
-        # Check if geometry needs coordinate transformation
-        # If CRS is not WGS84 (EPSG:4326), we need to transform
-        crs = geojson_data.get('crs', {})
+        # Check if coordinates need transformation (detect projected vs geographic)
+        crs_info = geojson_data.get('crs', {})
+        sample_coord = None
         needs_transform = False
+        source_srid = None
         
-        # Check if coordinates look like they're in a projected system (large numbers)
         if geometry.get('coordinates'):
-            sample_coord = None
             if geometry_type == 'POLYGON':
                 sample_coord = geometry['coordinates'][0][0][0] if geometry['coordinates'][0][0] else None
             elif geometry_type == 'MULTIPOLYGON':
                 sample_coord = geometry['coordinates'][0][0][0][0] if geometry['coordinates'][0][0][0] else None
-            
+        
+        # Detect if coordinates are in projected system (large numbers) vs lat/lon
+        if sample_coord:
             # If coordinates are very large (> 1000), likely projected (not lat/lon)
-            if sample_coord and abs(sample_coord[0]) > 1000:
+            if abs(sample_coord[0]) > 1000 or abs(sample_coord[1]) > 1000:
                 needs_transform = True
-                print(f"Warning: Geometry for {name} appears to be in a projected coordinate system. Coordinates may need transformation to WGS84.")
+                # Try to detect UTM zone (common for Zimbabwe is UTM Zone 35S or 36S)
+                # Zimbabwe coordinates typically fall in these ranges
+                if 200000 < abs(sample_coord[0]) < 1000000 and 7000000 < abs(sample_coord[1]) < 9000000:
+                    # Likely UTM Zone 35S (EPSG:32735) or 36S (EPSG:32736)
+                    # Default to 35S for Harare area
+                    source_srid = 32735
+                    print(f"Detected projected coordinates for {name}. Attempting transformation from EPSG:{source_srid} to WGS84.")
+                else:
+                    print(f"Warning: Geometry for {name} appears to be in a projected coordinate system but SRID could not be determined.")
         
         # Calculate center point from geometry using PostGIS function
         # If geometry needs transformation, PostGIS will handle it if SRID is set correctly
