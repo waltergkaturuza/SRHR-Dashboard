@@ -74,6 +74,10 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick }) => {
                         lon >= -180 && lon <= 180 && lat >= -90 && lat <= 90) {
                       return [lat, lon]; // [lat, lng] for Leaflet
                     }
+                    // Log invalid coordinates for debugging
+                    if (typeof lon === 'number' && typeof lat === 'number') {
+                      console.warn(`BoundaryLayer: Invalid coordinates for ${boundary.name}: lon=${lon}, lat=${lat} (outside WGS84 range)`);
+                    }
                     return null;
                   })
                   .filter(Boolean);
@@ -115,11 +119,12 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick }) => {
               })
               .filter(Boolean);
           } else {
-            console.warn(`Unsupported geometry type: ${geometryType} for boundary ${boundary.name}`);
+            console.warn(`BoundaryLayer: Unsupported geometry type: ${geometryType} for boundary ${boundary.name}`);
             return null;
           }
         } catch (error) {
-          console.error(`Error processing boundary ${boundary.name}:`, error);
+          console.error(`BoundaryLayer: Error processing boundary ${boundary.name}:`, error);
+          console.error('Boundary data:', boundary);
           return null;
         }
 
