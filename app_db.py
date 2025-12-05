@@ -1113,7 +1113,15 @@ def advanced_search():
         # Search boundaries/suburbs
         if query or suburb:
             boundary_query = db.text("""
-                SELECT id, name, code, population, area_km2
+                SELECT 
+                    id, 
+                    name, 
+                    code, 
+                    population, 
+                    area_km2,
+                    ST_X(center_point) as center_lon,
+                    ST_Y(center_point) as center_lat,
+                    ST_AsGeoJSON(boundary) as boundary_geojson
                 FROM district_boundaries
                 WHERE (:query = '' OR LOWER(name) LIKE '%' || LOWER(:query) || '%')
                   AND (:suburb = '' OR LOWER(name) = LOWER(:suburb))
@@ -1129,14 +1137,26 @@ def advanced_search():
                 'suburb': suburb,
                 'limit': limit
             })
-            results['boundaries'] = [{
-                'id': row.id,
-                'name': row.name,
-                'code': row.code,
-                'population': int(row.population) if row.population else None,
-                'area_km2': float(row.area_km2) if row.area_km2 else None,
-                'type': 'boundary'
-            } for row in boundary_result]
+            import json
+            results['boundaries'] = []
+            for row in boundary_result:
+                boundary_data = {
+                    'id': row.id,
+                    'name': row.name,
+                    'code': row.code,
+                    'population': int(row.population) if row.population else None,
+                    'area_km2': float(row.area_km2) if row.area_km2 else None,
+                    'type': 'boundary',
+                    'latitude': float(row.center_lat) if row.center_lat else None,
+                    'longitude': float(row.center_lon) if row.center_lon else None
+                }
+                # Include boundary geometry for fitting bounds
+                if row.boundary_geojson:
+                    try:
+                        boundary_data['boundary'] = json.loads(row.boundary_geojson)
+                    except:
+                        pass
+                results['boundaries'].append(boundary_data)
         
         # Search health platforms
         health_conditions = ["hp.year = :year"]

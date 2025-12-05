@@ -3,10 +3,25 @@ import { Polygon, Popup, Tooltip } from 'react-leaflet';
 import axios from 'axios';
 import { getApiUrl } from '../config';
 
-const BoundaryLayer = ({ selectedYear, onDistrictClick }) => {
+const BoundaryLayer = ({ selectedYear, onDistrictClick, selectedFeature }) => {
   const [boundaries, setBoundaries] = useState([]);
   const [selectedDistrict, setSelectedDistrict] = useState(null);
   const [districtFacilities, setDistrictFacilities] = useState(null);
+
+  // Update selected district when selectedFeature changes (from sidebar search)
+  useEffect(() => {
+    if (selectedFeature && selectedFeature.properties) {
+      const props = selectedFeature.properties;
+      if (props.isBoundary || props.resultType === 'boundary' || props.type === 'boundary') {
+        setSelectedDistrict(props.boundaryName || props.name);
+        // Trigger district click to load facilities
+        const boundary = boundaries.find(b => b.name === (props.boundaryName || props.name));
+        if (boundary) {
+          handleDistrictClick(boundary);
+        }
+      }
+    }
+  }, [selectedFeature, boundaries]);
 
   useEffect(() => {
     const fetchBoundaries = async () => {

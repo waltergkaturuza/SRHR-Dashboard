@@ -24,9 +24,54 @@ function MapUpdater({ selectedFeature }) {
 
   useEffect(() => {
     if (selectedFeature && selectedFeature.geometry) {
-      const coords = selectedFeature.geometry.coordinates;
-      // Zoom to level 18 for detailed view (can zoom in further manually)
-      map.setView([coords[1], coords[0]], 18, { animate: true });
+      const geometry = selectedFeature.geometry;
+      const props = selectedFeature.properties || {};
+      
+      // Handle boundaries (polygons) differently from points
+      if (props.isBoundary || geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
+        // For boundaries, fit the map to the polygon bounds
+        try {
+          if (geometry.type === 'Polygon' && geometry.coordinates) {
+            // Extract all coordinates from the polygon
+            const allCoords = geometry.coordinates[0]; // First ring (outer boundary)
+            if (allCoords && allCoords.length > 0) {
+              const latlngs = allCoords.map(coord => [coord[1], coord[0]]); // [lat, lng]
+              const bounds = L.latLngBounds(latlngs);
+              map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: true });
+            }
+          } else if (geometry.type === 'MultiPolygon' && geometry.coordinates) {
+            // Extract all coordinates from all polygons
+            const allCoords = [];
+            geometry.coordinates.forEach(polygon => {
+              if (polygon[0]) {
+                polygon[0].forEach(coord => {
+                  allCoords.push([coord[1], coord[0]]); // [lat, lng]
+                });
+              }
+            });
+            if (allCoords.length > 0) {
+              const bounds = L.latLngBounds(allCoords);
+              map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: true });
+            }
+          } else if (props.latitude && props.longitude) {
+            // Fallback to center point if polygon geometry not available
+            map.setView([props.latitude, props.longitude], 14, { animate: true });
+          }
+        } catch (error) {
+          console.error('Error fitting bounds for boundary:', error);
+          // Fallback to center point
+          if (props.latitude && props.longitude) {
+            map.setView([props.latitude, props.longitude], 14, { animate: true });
+          }
+        }
+      } else {
+        // For point features (facilities, health platforms), zoom to point
+        const coords = geometry.coordinates;
+        if (coords && coords.length >= 2) {
+          // Zoom to level 18 for detailed view (can zoom in further manually)
+          map.setView([coords[1], coords[0]], 18, { animate: true });
+        }
+      }
     }
   }, [selectedFeature, map]);
 
@@ -487,7 +532,10 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
         })}
         {/* District Boundaries */}
         {visibleLayers['boundaries'] && (
-          <BoundaryLayer selectedYear={selectedYear} />
+          <BoundaryLayer 
+            selectedYear={selectedYear} 
+            selectedFeature={selectedFeature}
+          />
         )}
       </MapContainer>
       

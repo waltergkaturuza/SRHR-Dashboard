@@ -155,16 +155,38 @@ const Sidebar = ({ geospatialData, selectedFeature, onFeatureSelect, selectedYea
               key={`${item.resultType}-${item.id}-${index}`}
               className={`location-card ${selectedFeature?.properties?.id === item.id ? 'selected' : ''}`}
               onClick={() => {
-                // Convert to feature format for compatibility
-                const feature = {
-                  type: 'Feature',
-                  geometry: {
-                    type: 'Point',
-                    coordinates: item.longitude && item.latitude ? [item.longitude, item.latitude] : [0, 0]
-                  },
-                  properties: item
-                };
-                onFeatureSelect(feature);
+                // Handle boundaries differently - they need polygon geometry for proper zooming
+                if (item.resultType === 'boundary') {
+                  // For boundaries, use center point if available, or fetch boundary geometry
+                  const feature = {
+                    type: 'Feature',
+                    geometry: item.boundary || {
+                      type: 'Point',
+                      coordinates: item.longitude && item.latitude 
+                        ? [item.longitude, item.latitude] 
+                        : [31.0492, -17.8252] // Default to Harare center
+                    },
+                    properties: {
+                      ...item,
+                      isBoundary: true,
+                      boundaryName: item.name
+                    }
+                  };
+                  onFeatureSelect(feature);
+                } else {
+                  // For facilities and health platforms, use point geometry
+                  const feature = {
+                    type: 'Feature',
+                    geometry: {
+                      type: 'Point',
+                      coordinates: item.longitude && item.latitude 
+                        ? [item.longitude, item.latitude] 
+                        : [31.0492, -17.8252] // Default to Harare center
+                    },
+                    properties: item
+                  };
+                  onFeatureSelect(feature);
+                }
               }}
             >
               <div className="location-header">
