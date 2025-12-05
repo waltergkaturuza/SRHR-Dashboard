@@ -50,20 +50,71 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick }) => {
         // Handle both Polygon and MultiPolygon geometries
         let polygonPositions = [];
         
-        if (geometryType === 'Polygon') {
-          // Single polygon: coordinates is an array of rings
-          polygonPositions = [boundary.boundary.coordinates[0].map(ring => 
-            ring.map(coord => [coord[1], coord[0]]) // [lat, lng]
-          )];
-        } else if (geometryType === 'MultiPolygon') {
-          // MultiPolygon: coordinates is an array of polygons, each polygon has rings
-          polygonPositions = boundary.boundary.coordinates.map(polygon => 
-            polygon[0].map(ring => 
-              ring.map(coord => [coord[1], coord[0]]) // [lat, lng]
-            )
-          );
-        } else {
-          console.warn(`Unsupported geometry type: ${geometryType} for boundary ${boundary.name}`);
+        try {
+          if (geometryType === 'Polygon') {
+            // Single polygon: coordinates is an array of rings
+            // Leaflet Polygon expects: [[[lat, lng], [lat, lng], ...]] for outer ring
+            // Additional rings are holes: [[[lat, lng], ...], [[lat, lng], ...]]
+            if (boundary.boundary.coordinates && Array.isArray(boundary.boundary.coordinates[0])) {
+              const rings = boundary.boundary.coordinates.map(ring => {
+                if (!Array.isArray(ring)) return null;
+                const coords = ring
+                  .filter(coord => Array.isArray(coord) && coord.length >= 2)
+                  .map(coord => {
+                    const lon = coord[0];
+                    const lat = coord[1];
+                    // Validate coordinates are numbers
+                    if (typeof lon === 'number' && typeof lat === 'number' && 
+                        !isNaN(lon) && !isNaN(lat) &&
+                        lon >= -180 && lon <= 180 && lat >= -90 && lat <= 90) {
+                      return [lat, lon]; // [lat, lng] for Leaflet
+                    }
+                    return null;
+                  })
+                  .filter(Boolean);
+                return coords.length > 0 ? coords : null;
+              }).filter(Boolean);
+              
+              if (rings.length > 0 && rings[0].length > 0) {
+                polygonPositions = [rings]; // Wrap in array for Polygon component
+              }
+            }
+          } else if (geometryType === 'MultiPolygon') {
+            // MultiPolygon: coordinates is an array of polygons, each polygon has rings
+            // Leaflet Polygon expects each polygon as: [[[lat, lng], [lat, lng], ...]]
+            polygonPositions = boundary.boundary.coordinates
+              .filter(polygon => Array.isArray(polygon) && polygon[0] && Array.isArray(polygon[0]))
+              .map(polygon => {
+                const rings = polygon
+                  .filter(ring => Array.isArray(ring))
+                  .map(ring => {
+                    if (!Array.isArray(ring)) return null;
+                    const coords = ring
+                      .filter(coord => Array.isArray(coord) && coord.length >= 2)
+                      .map(coord => {
+                        const lon = coord[0];
+                        const lat = coord[1];
+                        // Validate coordinates are numbers
+                        if (typeof lon === 'number' && typeof lat === 'number' && 
+                            !isNaN(lon) && !isNaN(lat) &&
+                            lon >= -180 && lon <= 180 && lat >= -90 && lat <= 90) {
+                          return [lat, lon]; // [lat, lng] for Leaflet
+                        }
+                        return null;
+                      })
+                      .filter(Boolean);
+                    return coords.length > 0 ? coords : null;
+                  })
+                  .filter(Boolean);
+                return rings.length > 0 && rings[0].length > 0 ? rings : null;
+              })
+              .filter(Boolean);
+          } else {
+            console.warn(`Unsupported geometry type: ${geometryType} for boundary ${boundary.name}`);
+            return null;
+          }
+        } catch (error) {
+          console.error(`Error processing boundary ${boundary.name}:`, error);
           return null;
         }
 
@@ -75,12 +126,52 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick }) => {
         // Render each polygon (for MultiPolygon, render multiple Polygon components)
         // Popup and Tooltip only on the first polygon
         return polygonPositions.map((positions, polyIndex) => {
-          if (!positions || positions.length === 0) return null;
+          // Validate positions structure
+          if (!positions || !Array.isArray(positions) || positions.length === 0) {
+            return null;
+          }
+          
+          // Ensure first ring (outer boundary) exists and has valid coordinates
+          const outerRing = positions[0];
+          if (!outerRing || !Array.isArray(outerRing) || outerRing.length < 3) {
+            // Need at least 3 points for a valid polygon
+            return null;
+          }
+          
+          // Validate all coordinates in outer ring
+          const validOuterRing = outerRing.filter(coord => 
+            Array.isArray(coord) && 
+            coord.length === 2 && 
+            typeof coord[0] === 'number' && 
+            typeof coord[1] === 'number' &&
+            !isNaN(coord[0]) && !isNaN(coord[1])
+          );
+          
+          if (validOuterRing.length < 3) {
+            return null;
+          }
+          
+          // Reconstruct positions with validated outer ring
+          const validatedPositions = [validOuterRing];
+          // Add holes if they exist and are valid
+          if (positions.length > 1) {
+            const holes = positions.slice(1)
+              .filter(hole => Array.isArray(hole) && hole.length >= 3)
+              .map(hole => hole.filter(coord => 
+                Array.isArray(coord) && 
+                coord.length === 2 && 
+                typeof coord[0] === 'number' && 
+                typeof coord[1] === 'number' &&
+                !isNaN(coord[0]) && !isNaN(coord[1])
+              ))
+              .filter(hole => hole.length >= 3);
+            validatedPositions.push(...holes);
+          }
           
           return (
             <Polygon
               key={`${boundary.id}-${polyIndex}`}
-              positions={positions}
+              positions={validatedPositions}
             pathOptions={{
               color: isSelected ? '#00d4ff' : '#ffeb3b',
               weight: isSelected ? 3 : 2,
