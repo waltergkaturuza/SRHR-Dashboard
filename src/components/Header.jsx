@@ -1,9 +1,9 @@
 import React from 'react';
-import { Upload, Sun, Moon } from 'lucide-react';
+import { Sun, Moon } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import './Header.css';
 
-const Header = ({ selectedYear, onYearChange, onUploadClick }) => {
+const Header = ({ selectedYear, onYearChange }) => {
   const { theme, toggleTheme } = useTheme();
   // Default to current year
   const currentYear = new Date().getFullYear();
@@ -38,15 +38,6 @@ const Header = ({ selectedYear, onYearChange, onUploadClick }) => {
           title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
         >
           {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-        </button>
-        
-        <button 
-          className="upload-btn"
-          onClick={onUploadClick}
-          title="Upload Geospatial Data"
-        >
-          <Upload size={18} />
-          <span>Upload Data</span>
         </button>
         
         <div className="year-selector-inline">

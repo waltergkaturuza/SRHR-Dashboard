@@ -64,7 +64,6 @@ function DashboardView() {
       <Header 
         selectedYear={selectedYear}
         onYearChange={setSelectedYear}
-        onUploadClick={() => setIsUploadModalOpen(true)}
       />
       
       <div className="app-content">

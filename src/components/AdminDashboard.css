@@ -96,6 +96,7 @@
   box-shadow: 0 0 0 3px var(--accent-bg);
 }
 
+.btn-upload,
 .btn-export,
 .btn-add {
   display: flex;
@@ -108,6 +109,17 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+.btn-upload {
+  background-color: var(--accent-primary);
+  color: var(--bg-primary);
+}
+
+.btn-upload:hover {
+  background-color: var(--accent-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px var(--shadow-light);
 }
 
 .btn-export {

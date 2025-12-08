@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { getApiUrl } from '../config';
-import { Edit2, Trash2, Plus, Save, X, Search, Filter, Download } from 'lucide-react';
+import { Edit2, Trash2, Plus, Save, X, Search, Filter, Download, Upload } from 'lucide-react';
 import UploadModal from './UploadModal';
 import './AdminDashboard.css';
 
@@ -16,6 +16,7 @@ const AdminDashboard = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showBoundaryUpload, setShowBoundaryUpload] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   // Default to current year instead of 'all'
   const currentYear = new Date().getFullYear();
@@ -694,6 +695,14 @@ const AdminDashboard = () => {
         </div>
 
         <div className="toolbar-right">
+          <button 
+            className="btn-upload" 
+            onClick={() => setShowUploadModal(true)}
+            title="Upload Geospatial Data"
+          >
+            <Upload size={18} />
+            Upload Data
+          </button>
           <button className="btn-export" onClick={exportToCSV}>
             <Download size={18} />
             Export CSV
@@ -1354,6 +1363,35 @@ const AdminDashboard = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Upload Modal for general data */}
+      {showUploadModal && (
+        <UploadModal
+          onClose={() => {
+            setShowUploadModal(false);
+            // Refresh data based on current filter
+            if (filterCategory === 'boundaries') {
+              fetchBoundaries();
+            } else if (filterCategory === 'health') {
+              fetchAllPlatforms();
+            } else {
+              fetchFacilities();
+            }
+          }}
+          onUploadSuccess={() => {
+            setShowUploadModal(false);
+            // Refresh data based on current filter
+            if (filterCategory === 'boundaries') {
+              fetchBoundaries();
+            } else if (filterCategory === 'health') {
+              fetchAllPlatforms();
+            } else {
+              fetchFacilities();
+            }
+          }}
+          defaultCategory={filterCategory === 'boundaries' ? 'boundaries' : filterCategory}
+        />
       )}
 
       {/* Boundary Upload Modal */}

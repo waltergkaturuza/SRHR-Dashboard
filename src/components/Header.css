@@ -52,27 +52,6 @@
   transform: rotate(15deg);
 }
 
-.upload-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
-  background-color: var(--accent-primary);
-  color: var(--bg-secondary);
-  border: none;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.upload-btn:hover {
-  background-color: var(--accent-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px var(--shadow-light);
-}
-
 /* Inline year selector */
 .year-selector-inline {
   display: flex;
