@@ -239,6 +239,96 @@ def logout():
     return jsonify({'message': 'Logged out successfully'}), 200
 
 
+@app.route('/api/auth/users', methods=['GET'])
+@require_auth('admin')
+def list_users():
+    """List all users (admin only)"""
+    try:
+        users = User.query.order_by(User.created_at.desc()).all()
+        return jsonify({
+            'users': [user.to_dict() for user in users]
+        }), 200
+    except Exception as e:
+        print(f"List users error: {e}")
+        return jsonify({'error': 'Failed to fetch users'}), 500
+
+
+@app.route('/api/auth/users/<int:user_id>', methods=['GET', 'PUT', 'DELETE'])
+@require_auth('admin')
+def manage_user(user_id):
+    """Get, update, or delete a user (admin only)"""
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        if request.method == 'GET':
+            return jsonify({'user': user.to_dict()}), 200
+        
+        elif request.method == 'PUT':
+            data = request.get_json()
+            
+            # Prevent editing yourself (to avoid locking yourself out)
+            current_user = get_current_user()
+            if current_user.id == user_id and data.get('role') and data.get('role') != user.role:
+                return jsonify({'error': 'You cannot change your own role'}), 400
+            
+            if current_user.id == user_id and data.get('is_active') == False:
+                return jsonify({'error': 'You cannot deactivate your own account'}), 400
+            
+            # Update fields
+            if 'username' in data:
+                # Check if username already exists (excluding current user)
+                existing = User.query.filter(User.username == data['username'], User.id != user_id).first()
+                if existing:
+                    return jsonify({'error': 'Username already exists'}), 400
+                user.username = data['username'].strip()
+            
+            if 'email' in data:
+                # Check if email already exists (excluding current user)
+                existing = User.query.filter(User.email == data['email'].lower().strip(), User.id != user_id).first()
+                if existing:
+                    return jsonify({'error': 'Email already exists'}), 400
+                user.email = data['email'].strip().lower()
+            
+            if 'role' in data:
+                if data['role'] not in ['admin', 'editor', 'viewer']:
+                    return jsonify({'error': 'Invalid role'}), 400
+                user.role = data['role']
+            
+            if 'full_name' in data:
+                user.full_name = data['full_name'].strip()
+            
+            if 'is_active' in data:
+                user.is_active = bool(data['is_active'])
+            
+            if 'password' in data and data['password']:
+                user.set_password(data['password'])
+            
+            db.session.commit()
+            
+            return jsonify({
+                'user': user.to_dict(),
+                'message': 'User updated successfully'
+            }), 200
+        
+        elif request.method == 'DELETE':
+            # Prevent deleting yourself
+            current_user = get_current_user()
+            if current_user.id == user_id:
+                return jsonify({'error': 'You cannot delete your own account'}), 400
+            
+            db.session.delete(user)
+            db.session.commit()
+            
+            return jsonify({'message': 'User deleted successfully'}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Manage user error: {e}")
+        return jsonify({'error': 'Failed to manage user'}), 500
+
+
 @app.route('/api/auth/init-admin', methods=['POST'])
 def init_admin():
     """Initialize default admin user (only works if no users exist)"""

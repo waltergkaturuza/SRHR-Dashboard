@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { getApiUrl } from '../config';
-import { Edit2, Trash2, Plus, Save, X, Search, Filter, Download, Upload } from 'lucide-react';
+import { Edit2, Trash2, Plus, Save, X, Search, Filter, Download, Upload, Settings, Database } from 'lucide-react';
 import UploadModal from './UploadModal';
+import UserManagement from './UserManagement';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
@@ -26,6 +27,7 @@ const AdminDashboard = () => {
   const [availableYears, setAvailableYears] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: 'year', direction: 'desc' });
   const [selectedBoundaries, setSelectedBoundaries] = useState([]);
+  const [activeTab, setActiveTab] = useState('data'); // 'data' or 'settings'
 
   // New platform form
   const [newPlatform, setNewPlatform] = useState({
