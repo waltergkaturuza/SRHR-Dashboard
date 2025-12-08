@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from database.models import db, HealthPlatform, TrendData
+from database.models import db, HealthPlatform, TrendData, User
 from geoalchemy2.functions import ST_GeomFromText, ST_AsGeoJSON
 from werkzeug.utils import secure_filename
 import os
@@ -9,7 +9,9 @@ import geopandas as gpd
 import json
 import tempfile
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
+import jwt
+from functools import wraps
 
 # Helper function to get current year
 def get_current_year():
@@ -55,6 +57,65 @@ CORS(app, resources={
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# JWT Configuration
+JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', app.config['SECRET_KEY'])
+JWT_ALGORITHM = 'HS256'
+JWT_EXPIRATION_HOURS = 24
+
+def generate_token(user):
+    """Generate JWT token for user"""
+    payload = {
+        'user_id': user.id,
+        'username': user.username,
+        'role': user.role,
+        'exp': datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS),
+        'iat': datetime.utcnow()
+    }
+    return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+def verify_token(token):
+    """Verify JWT token and return user data"""
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
+def get_current_user():
+    """Get current user from request token"""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return None
+    
+    try:
+        token = auth_header.split(' ')[1]  # Bearer <token>
+        payload = verify_token(token)
+        if payload:
+            user = User.query.get(payload['user_id'])
+            if user and user.is_active:
+                return user
+    except (IndexError, KeyError):
+        pass
+    return None
+
+def require_auth(required_role='viewer'):
+    """Decorator to require authentication and optional role"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            user = get_current_user()
+            if not user:
+                return jsonify({'error': 'Authentication required'}), 401
+            
+            if not user.has_role(required_role):
+                return jsonify({'error': f'Insufficient permissions. Required role: {required_role}'}), 403
+            
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
 
 @app.route('/api/health')
 def health_check():
@@ -71,6 +132,149 @@ def health_check():
         "message": "SRHR Dashboard API is running",
         "database": db_status
     })
+
+
+# Authentication Endpoints
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    """User login endpoint"""
+    try:
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        
+        if not username or not password:
+            return jsonify({'error': 'Username and password are required'}), 400
+        
+        # Find user by username or email
+        user = User.query.filter(
+            (User.username == username) | (User.email == username)
+        ).first()
+        
+        if not user or not user.check_password(password):
+            return jsonify({'error': 'Invalid username or password'}), 401
+        
+        if not user.is_active:
+            return jsonify({'error': 'Account is disabled'}), 403
+        
+        # Update last login
+        user.last_login = datetime.utcnow()
+        db.session.commit()
+        
+        # Generate token
+        token = generate_token(user)
+        
+        return jsonify({
+            'token': token,
+            'user': user.to_dict(),
+            'message': 'Login successful'
+        }), 200
+        
+    except Exception as e:
+        print(f"Login error: {e}")
+        return jsonify({'error': 'Login failed. Please try again.'}), 500
+
+
+@app.route('/api/auth/register', methods=['POST'])
+@require_auth('admin')  # Only admins can create new users
+def register():
+    """Register new user (admin only)"""
+    try:
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip().lower()
+        password = data.get('password', '')
+        role = data.get('role', 'viewer')
+        full_name = data.get('full_name', '').strip()
+        
+        # Validation
+        if not username or not email or not password:
+            return jsonify({'error': 'Username, email, and password are required'}), 400
+        
+        if role not in ['admin', 'editor', 'viewer']:
+            return jsonify({'error': 'Invalid role. Must be admin, editor, or viewer'}), 400
+        
+        # Check if user already exists
+        if User.query.filter_by(username=username).first():
+            return jsonify({'error': 'Username already exists'}), 400
+        
+        if User.query.filter_by(email=email).first():
+            return jsonify({'error': 'Email already exists'}), 400
+        
+        # Create new user
+        user = User(
+            username=username,
+            email=email,
+            role=role,
+            full_name=full_name or username
+        )
+        user.set_password(password)
+        
+        db.session.add(user)
+        db.session.commit()
+        
+        return jsonify({
+            'user': user.to_dict(),
+            'message': 'User created successfully'
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Registration error: {e}")
+        return jsonify({'error': 'Registration failed. Please try again.'}), 500
+
+
+@app.route('/api/auth/me', methods=['GET'])
+@require_auth()
+def get_current_user_info():
+    """Get current authenticated user info"""
+    user = get_current_user()
+    return jsonify({'user': user.to_dict()}), 200
+
+
+@app.route('/api/auth/logout', methods=['POST'])
+@require_auth()
+def logout():
+    """Logout endpoint (client should discard token)"""
+    return jsonify({'message': 'Logged out successfully'}), 200
+
+
+@app.route('/api/auth/init-admin', methods=['POST'])
+def init_admin():
+    """Initialize default admin user (only works if no users exist)"""
+    try:
+        # Check if any users exist
+        if User.query.count() > 0:
+            return jsonify({'error': 'Users already exist. Use admin account to create new users.'}), 400
+        
+        data = request.get_json() or {}
+        username = data.get('username', 'admin').strip()
+        email = data.get('email', 'admin@srhr.local').strip().lower()
+        password = data.get('password', 'admin123')
+        full_name = data.get('full_name', 'Administrator')
+        
+        # Create admin user
+        admin = User(
+            username=username,
+            email=email,
+            role='admin',
+            full_name=full_name,
+            is_active=True
+        )
+        admin.set_password(password)
+        
+        db.session.add(admin)
+        db.session.commit()
+        
+        return jsonify({
+            'user': admin.to_dict(),
+            'message': f'Admin user "{username}" created successfully. Please change the default password.'
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Init admin error: {e}")
+        return jsonify({'error': 'Failed to create admin user'}), 500
 
 
 @app.route('/api/years', methods=['GET'])
@@ -178,6 +382,7 @@ def get_statistics():
 
 
 @app.route('/api/upload', methods=['POST'])
+@require_auth('editor')  # Require editor role or higher
 def upload_file():
     """Upload geospatial data file"""
     if 'file' not in request.files:
@@ -319,6 +524,7 @@ def import_geojson_to_db(geojson_data, year, category='health', district=None):
 
 
 @app.route('/api/platform/<int:platform_id>', methods=['GET', 'PUT', 'DELETE'])
+@require_auth('editor')  # Require editor role or higher
 def manage_platform(platform_id):
     """Get, update, or delete a specific platform"""
     platform = HealthPlatform.query.get_or_404(platform_id)
@@ -370,10 +576,16 @@ def refresh_trends():
 
 
 @app.route('/api/admin/init-tables', methods=['POST'])
+@require_auth('admin')  # Only admins can initialize tables
 def initialize_tables():
-    """Initialize facilities and boundaries tables"""
+    """Initialize facilities, boundaries, and users tables"""
     try:
         results = []
+        
+        # Create all tables (including users)
+        with app.app_context():
+            db.create_all()
+            results.append("✅ All tables initialized (including users table)")
         
         # Check and create facilities table
         from sqlalchemy import inspect
@@ -497,6 +709,7 @@ def get_boundaries():
 
 
 @app.route('/api/boundaries/<int:boundary_id>', methods=['GET', 'PUT', 'DELETE'])
+@require_auth('editor')  # Require editor role or higher
 def manage_boundary(boundary_id):
     """Get, update, or delete a specific boundary"""
     try:
@@ -620,6 +833,7 @@ def delete_seed_boundaries():
 
 
 @app.route('/api/boundaries/bulk-delete', methods=['POST'])
+@require_auth('editor')  # Require editor role or higher
 def bulk_delete_boundaries():
     """Bulk delete boundaries by IDs"""
     try:
@@ -665,6 +879,7 @@ def bulk_delete_boundaries():
 
 
 @app.route('/api/upload-boundaries', methods=['POST'])
+@require_auth('editor')  # Require editor role or higher
 def upload_boundaries():
     """Upload boundary files (Polygon or MultiPolygon geometries)"""
     if 'file' not in request.files:
@@ -1471,6 +1686,7 @@ def get_facilities():
 
 
 @app.route('/api/facility/<int:facility_id>', methods=['GET', 'PUT', 'DELETE'])
+@require_auth('editor')  # Require editor role or higher
 def manage_facility(facility_id):
     """Get, update, or delete a specific facility"""
     try:

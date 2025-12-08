@@ -14,3 +14,7 @@ WHERE name IN (
 -- Verify deletion
 SELECT COUNT(*) as remaining_boundaries FROM district_boundaries;
 
+
+
+
+

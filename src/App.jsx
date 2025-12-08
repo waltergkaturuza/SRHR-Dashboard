@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { getApiUrl } from './config';
+import { AuthProvider } from './contexts/AuthContext';
 import Header from './components/Header';
 import MapView from './components/MapView';
 import Sidebar from './components/Sidebar';
@@ -10,6 +11,8 @@ import UploadModal from './components/UploadModal';
 import AdminDashboard from './components/AdminDashboard';
 import Navigation from './components/Navigation';
 import ErrorBoundary from './components/ErrorBoundary';
+import Login from './components/Login';
+import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
 function DashboardView() {
@@ -102,16 +105,26 @@ function DashboardView() {
 function App() {
   return (
     <ErrorBoundary>
-      <Router>
-        <div className="app">
-          <Navigation />
-          <Routes>
-            <Route path="/" element={<DashboardView />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </div>
-      </Router>
+      <AuthProvider>
+        <Router>
+          <div className="app">
+            <Navigation />
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/" element={<DashboardView />} />
+              <Route 
+                path="/admin" 
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </div>
+        </Router>
+      </AuthProvider>
     </ErrorBoundary>
   );
 }
