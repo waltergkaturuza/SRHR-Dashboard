@@ -243,9 +243,29 @@ def logout():
 def init_admin():
     """Initialize default admin user (only works if no users exist)"""
     try:
+        # Ensure users table exists
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        
+        if 'users' not in inspector.get_table_names():
+            # Create all tables including users
+            with app.app_context():
+                db.create_all()
+        
         # Check if any users exist
-        if User.query.count() > 0:
-            return jsonify({'error': 'Users already exist. Use admin account to create new users.'}), 400
+        try:
+            user_count = User.query.count()
+            if user_count > 0:
+                return jsonify({'error': 'Users already exist. Use admin account to create new users.'}), 400
+        except Exception as query_error:
+            # Table might exist but have issues, try to create it anyway
+            print(f"Query error (might be expected on first run): {query_error}")
+            with app.app_context():
+                db.create_all()
+            # Try query again
+            user_count = User.query.count()
+            if user_count > 0:
+                return jsonify({'error': 'Users already exist. Use admin account to create new users.'}), 400
         
         data = request.get_json() or {}
         username = data.get('username', 'admin').strip()
@@ -253,12 +273,20 @@ def init_admin():
         password = data.get('password', 'admin123')
         full_name = data.get('full_name', 'Administrator')
         
+        # Validate inputs
+        if not username:
+            username = 'admin'
+        if not email:
+            email = 'admin@srhr.local'
+        if not password:
+            password = 'admin123'
+        
         # Create admin user
         admin = User(
             username=username,
             email=email,
             role='admin',
-            full_name=full_name,
+            full_name=full_name or username,
             is_active=True
         )
         admin.set_password(password)
@@ -273,8 +301,14 @@ def init_admin():
         
     except Exception as e:
         db.session.rollback()
+        import traceback
+        error_trace = traceback.format_exc()
         print(f"Init admin error: {e}")
-        return jsonify({'error': 'Failed to create admin user'}), 500
+        print(f"Traceback: {error_trace}")
+        return jsonify({
+            'error': 'Failed to create admin user',
+            'details': str(e)
+        }), 500
 
 
 @app.route('/api/years', methods=['GET'])
