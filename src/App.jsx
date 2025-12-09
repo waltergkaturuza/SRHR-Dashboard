@@ -13,6 +13,7 @@ import Navigation from './components/Navigation';
 import ErrorBoundary from './components/ErrorBoundary';
 import Login from './components/Login';
 import ProtectedRoute from './components/ProtectedRoute';
+import { Map, BarChart3 } from 'lucide-react';
 import './App.css';
 
 function DashboardView() {
@@ -25,6 +26,7 @@ function DashboardView() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedFeature, setSelectedFeature] = useState(null);
+  const [activeTab, setActiveTab] = useState('map'); // 'map' or 'analytics'
 
   // Fetch data on component mount and year change
   useEffect(() => {
@@ -75,19 +77,38 @@ function DashboardView() {
         />
         
         <div className="main-content">
-          <MapView 
-            geospatialData={geospatialData}
-            selectedYear={selectedYear}
-            onFeatureClick={handleFeatureClick}
-            selectedFeature={selectedFeature}
-            loading={loading}
-          />
-          
-          <ChartPanel 
-            trendData={trendData}
-            statistics={statistics}
-            selectedYear={selectedYear}
-          />
+          <div className="dashboard-tabs">
+            <button
+              className={`dashboard-tab ${activeTab === 'map' ? 'active' : ''}`}
+              onClick={() => setActiveTab('map')}
+            >
+              <Map size={18} />
+              <span>Map View</span>
+            </button>
+            <button
+              className={`dashboard-tab ${activeTab === 'analytics' ? 'active' : ''}`}
+              onClick={() => setActiveTab('analytics')}
+            >
+              <BarChart3 size={18} />
+              <span>Analytics</span>
+            </button>
+          </div>
+
+          {activeTab === 'map' ? (
+            <MapView 
+              geospatialData={geospatialData}
+              selectedYear={selectedYear}
+              onFeatureClick={handleFeatureClick}
+              selectedFeature={selectedFeature}
+              loading={loading}
+            />
+          ) : (
+            <ChartPanel 
+              trendData={trendData}
+              statistics={statistics}
+              selectedYear={selectedYear}
+            />
+          )}
         </div>
       </div>
 
