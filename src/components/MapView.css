@@ -4,8 +4,8 @@
   background-color: var(--bg-primary);
   border-bottom: 1px solid var(--border-color);
   transition: background-color 0.3s ease;
-  min-height: 600px; /* Increased from default */
-  height: 70vh; /* Take up more vertical space */
+  height: 100%;
+  min-height: 0;
 }
 
 /* Fullscreen styles */
