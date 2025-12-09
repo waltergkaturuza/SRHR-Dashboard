@@ -1431,6 +1431,8 @@ const AdminDashboard = () => {
           defaultCategory="boundaries"
         />
       )}
+        </>
+      )}
     </div>
   );
 };

@@ -109,11 +109,17 @@ const UploadModal = ({ onClose, onUploadSuccess, defaultCategory = 'health' }) =
       // Use different endpoint for boundaries
       const endpoint = isBoundary ? getApiUrl('api/upload-boundaries') : getApiUrl('api/upload');
       console.log('Uploading to:', endpoint, 'isBoundary:', isBoundary);
-      const response = await axios.post(endpoint, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      
+      // Get auth token from localStorage to ensure it's included
+      const token = localStorage.getItem('auth_token');
+      const headers = {
+        'Content-Type': 'multipart/form-data',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await axios.post(endpoint, formData, { headers });
 
       setUploadStatus('success');
       if (isBoundary) {

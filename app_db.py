@@ -576,75 +576,90 @@ def upload_file():
         })
         
     except Exception as e:
-        return jsonify({"error": f"Error processing file: {str(e)}"}), 500
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Upload error: {e}")
+        print(f"Traceback: {error_trace}")
+        return jsonify({
+            "error": f"Error processing file: {str(e)}",
+            "details": error_trace
+        }), 500
 
 
 def import_geojson_to_db(geojson_data, year, category='health', district=None):
     """Import GeoJSON data into database"""
     feature_count = 0
     
-    for feature in geojson_data.get('features', []):
-        props = feature.get('properties', {})
-        geometry = feature.get('geometry', {})
-        
-        if geometry.get('type') != 'Point':
-            continue
-        
-        coords = geometry.get('coordinates', [])
-        if len(coords) < 2:
-            continue
-        
-        # Create WKT point
-        lon, lat = coords[0], coords[1]
-        wkt_point = f'POINT({lon} {lat})'
-        
-        # Determine which table to use
-        if category == 'health':
-            # Health platforms table
-            platform = HealthPlatform(
-                name=props.get('name', 'Unknown'),
-                type=props.get('type', 'Other'),
-                youth_count=props.get('youth_count', 0),
-                total_members=props.get('total_members', 1),
-                year=props.get('year', year),
-                address=props.get('address'),
-                description=props.get('description'),
-                district=props.get('district', district),
-                location=ST_GeomFromText(wkt_point, 4326)
-            )
-            db.session.add(platform)
-        else:
-            # Facilities table for schools, churches, police, shops, offices
-            from sqlalchemy import text, inspect
+    try:
+        for feature in geojson_data.get('features', []):
+            props = feature.get('properties', {})
+            geometry = feature.get('geometry', {})
             
-            # Check if facilities table exists
-            inspector = inspect(db.engine)
-            if 'facilities' in inspector.get_table_names():
-                # Insert into facilities table
-                insert_query = text("""
-                    INSERT INTO facilities 
-                    (name, category, sub_type, year, address, description, district, location)
-                    VALUES 
-                    (:name, :category, :sub_type, :year, :address, :description, :district, 
-                     ST_SetSRID(ST_MakePoint(:lon, :lat), 4326))
-                """)
+            if geometry.get('type') != 'Point':
+                continue
+            
+            coords = geometry.get('coordinates', [])
+            if len(coords) < 2:
+                continue
+            
+            # Create WKT point
+            lon, lat = coords[0], coords[1]
+            wkt_point = f'POINT({lon} {lat})'
+            
+            # Determine which table to use
+            if category == 'health':
+                # Health platforms table
+                platform = HealthPlatform(
+                    name=props.get('name', 'Unknown'),
+                    type=props.get('type', 'Other'),
+                    youth_count=int(props.get('youth_count', 0)),
+                    total_members=int(props.get('total_members', 1)),
+                    year=int(props.get('year', year)),
+                    address=props.get('address'),
+                    description=props.get('description'),
+                    district=props.get('district', district),
+                    location=ST_GeomFromText(wkt_point, 4326)
+                )
+                db.session.add(platform)
+            else:
+                # Facilities table for schools, churches, police, shops, offices
+                from sqlalchemy import text, inspect
                 
-                db.session.execute(insert_query, {
-                    'name': props.get('name', 'Unknown'),
-                    'category': category,
-                    'sub_type': props.get('sub_type') or props.get('type', ''),
-                    'year': props.get('year', year),
-                    'address': props.get('address'),
-                    'description': props.get('description'),
-                    'district': props.get('district', district),
-                    'lon': lon,
-                    'lat': lat
-                })
+                # Check if facilities table exists
+                inspector = inspect(db.engine)
+                if 'facilities' in inspector.get_table_names():
+                    # Insert into facilities table
+                    insert_query = text("""
+                        INSERT INTO facilities 
+                        (name, category, sub_type, year, address, description, district, location)
+                        VALUES 
+                        (:name, :category, :sub_type, :year, :address, :description, :district, 
+                         ST_SetSRID(ST_MakePoint(:lon, :lat), 4326))
+                    """)
+                    
+                    db.session.execute(insert_query, {
+                        'name': props.get('name', 'Unknown'),
+                        'category': category,
+                        'sub_type': props.get('sub_type') or props.get('type', ''),
+                        'year': int(props.get('year', year)),
+                        'address': props.get('address'),
+                        'description': props.get('description'),
+                        'district': props.get('district', district),
+                        'lon': lon,
+                        'lat': lat
+                    })
+            
+            feature_count += 1
         
-        feature_count += 1
-    
-    db.session.commit()
-    return feature_count
+        db.session.commit()
+        return feature_count
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Import error: {e}")
+        print(f"Traceback: {error_trace}")
+        raise  # Re-raise to be caught by upload_file
 
 
 @app.route('/api/platform/<int:platform_id>', methods=['GET', 'PUT', 'DELETE'])

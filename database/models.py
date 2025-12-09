@@ -17,6 +17,8 @@ class HealthPlatform(db.Model):
     total_members = db.Column(db.Integer, nullable=False, default=0)
     year = db.Column(db.Integer, nullable=False)
     address = db.Column(db.Text)
+    description = db.Column(db.Text)
+    district = db.Column(db.String(100))
     location = db.Column(Geometry('POINT', srid=4326), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -38,7 +40,9 @@ class HealthPlatform(db.Model):
                 "youth_count": self.youth_count,
                 "total_members": self.total_members,
                 "year": self.year,
-                "address": self.address
+                "address": self.address,
+                "description": self.description,
+                "district": self.district
             }
         }
     
@@ -52,6 +56,8 @@ class HealthPlatform(db.Model):
             "total_members": self.total_members,
             "year": self.year,
             "address": self.address,
+            "description": self.description,
+            "district": self.district,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }
