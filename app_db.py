@@ -726,9 +726,25 @@ def initialize_tables():
             db.create_all()
             results.append("✅ All tables initialized (including users table)")
         
-        # Check and create facilities table
+        # Add missing columns to health_platforms if they don't exist
         from sqlalchemy import inspect
         inspector = inspect(db.engine)
+        
+        if 'health_platforms' in inspector.get_table_names():
+            try:
+                # Check if description column exists
+                columns = [col['name'] for col in inspector.get_columns('health_platforms')]
+                if 'description' not in columns:
+                    db.session.execute(db.text("ALTER TABLE health_platforms ADD COLUMN description TEXT"))
+                    results.append("✅ Added description column to health_platforms")
+                if 'district' not in columns:
+                    db.session.execute(db.text("ALTER TABLE health_platforms ADD COLUMN district VARCHAR(100)"))
+                    results.append("✅ Added district column to health_platforms")
+                db.session.commit()
+            except Exception as e:
+                print(f"Note: Could not add columns to health_platforms (may already exist): {e}")
+        
+        # Check and create facilities table
         
         if 'facilities' not in inspector.get_table_names():
             results.append("Creating facilities table...")
