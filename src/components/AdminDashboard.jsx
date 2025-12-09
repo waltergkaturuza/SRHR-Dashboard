@@ -643,6 +643,27 @@ const AdminDashboard = () => {
         <p>Manage Health Decision-Making Platforms</p>
       </div>
 
+      <div className="admin-tabs">
+        <button
+          className={`admin-tab ${activeTab === 'data' ? 'active' : ''}`}
+          onClick={() => setActiveTab('data')}
+        >
+          <Database size={18} />
+          <span>Data Management</span>
+        </button>
+        <button
+          className={`admin-tab ${activeTab === 'settings' ? 'active' : ''}`}
+          onClick={() => setActiveTab('settings')}
+        >
+          <Settings size={18} />
+          <span>User Settings</span>
+        </button>
+      </div>
+
+      {activeTab === 'settings' ? (
+        <UserManagement />
+      ) : (
+        <>
       <div className="admin-toolbar">
         <div className="toolbar-left">
           <select 
