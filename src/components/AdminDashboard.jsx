@@ -350,7 +350,8 @@ const AdminDashboard = () => {
   const handleYouthRepSubmit = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
+      // Use the same auth token key as AuthContext
+      const token = localStorage.getItem('auth_token');
       if (!token) {
         alert('You must be logged in to manage youth representatives');
         return;
@@ -399,7 +400,8 @@ const AdminDashboard = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      // Use the same auth token key as AuthContext
+      const token = localStorage.getItem('auth_token');
       if (!token) {
         alert('You must be logged in to delete youth representatives');
         return;
