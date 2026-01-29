@@ -565,8 +565,37 @@ const MapView = ({ geospatialData, selectedYear, onFeatureClick, selectedFeature
             <div className="legend-circle" style={{ backgroundColor: '#ff9800' }}></div>
             <span>Community Committee</span>
           </div>
+          <div className="legend-item">
+            <div className="legend-circle" style={{ backgroundColor: '#9c27b0' }}></div>
+            <span>Clinic Committee</span>
+          </div>
+          <div className="legend-item">
+            <div className="legend-circle" style={{ backgroundColor: '#ffeb3b' }}></div>
+            <span>Community Platform</span>
+          </div>
+          <div className="legend-item">
+            <div className="legend-circle" style={{ backgroundColor: '#e91e63' }}></div>
+            <span>SRHR Forum</span>
+          </div>
+          <div className="legend-item">
+            <div className="legend-circle" style={{ backgroundColor: '#3f51b5' }}></div>
+            <span>Advisory Board</span>
+          </div>
         </div>
         <p className="legend-note">Circle size represents number of youth participants</p>
+        <div className="legend-additional-info" style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.25rem 0' }}>
+            <strong>Health Platforms for Young People:</strong>
+          </p>
+          <ul style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', margin: '0.25rem 0', paddingLeft: '1rem', listStyle: 'disc' }}>
+            <li>District Health Committee</li>
+            <li>District Aids Committee</li>
+            <li>District Health stakeholders taskforce</li>
+            <li>Child Protection Committee</li>
+            <li>District stakeholders</li>
+            <li>District health taskforce</li>
+          </ul>
+        </div>
       </div>
 
       <div className="map-info">

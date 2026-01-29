@@ -43,6 +43,68 @@
   margin-right: 0.5rem;
 }
 
+/* Youth Leader Section */
+.youth-leader-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.youth-leader-section h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.95rem;
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.youth-leader-info {
+  background-color: var(--bg-secondary);
+  padding: 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.youth-leader-info p {
+  margin: 0.25rem 0;
+  font-size: 0.875rem;
+}
+
+.youth-leader-info strong {
+  color: var(--text-primary);
+  margin-right: 0.5rem;
+}
+
+/* Health Platforms Section */
+.health-platforms-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.health-platforms-section h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.95rem;
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.health-platforms-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  list-style: none;
+  background-color: var(--bg-secondary);
+  padding: 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.health-platforms-list li {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0.35rem 0;
+  line-height: 1.5;
+}
+
 .district-facilities {
   margin-top: 1rem;
   padding-top: 1rem;

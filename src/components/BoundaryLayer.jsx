@@ -266,20 +266,94 @@ const BoundaryLayer = ({ selectedYear, onDistrictClick, selectedFeature }) => {
                       } km²</p>
                 </div>
 
+                {/* Youth Leader Section */}
+                {(boundary.youth_rep_name || boundary.youth_rep_title) && (
+                  <div className="youth-leader-section">
+                    <h4>👤 Youth Leader</h4>
+                    <div className="youth-leader-info">
+                      {boundary.youth_rep_name && (
+                        <p><strong>Name:</strong> {boundary.youth_rep_name}</p>
+                      )}
+                      {boundary.youth_rep_title && (
+                        <p><strong>Title:</strong> {boundary.youth_rep_title}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Health Platforms for Young People */}
+                {boundary.health_platforms && boundary.health_platforms.length > 0 && (
+                  <div className="health-platforms-section">
+                    <h4>🏥 Health Platforms for Young People</h4>
+                    <ul className="health-platforms-list">
+                      {boundary.health_platforms.map((platform, idx) => (
+                        <li key={idx}>• {platform}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 {districtFacilities && districtFacilities.district === boundary.name && (
                   <div className="district-facilities">
                         <h4>Facilities Statistics ({districtFacilities.year || selectedYear}):</h4>
                         
                         {districtFacilities.statistics && (
                           <div className="facility-statistics">
-                            {/* Health Platforms */}
-                            <div className="stat-category">
-                              <div className="stat-header">
-                                <span className="stat-icon">🏥</span>
-                                <span className="stat-title">Health Platforms</span>
-                                <span className="stat-count">{districtFacilities.statistics.health_platforms || 0}</span>
+                            {/* Health Platforms - Detailed Breakdown */}
+                            {districtFacilities.statistics.health_platforms > 0 && (
+                              <div className="stat-category">
+                                <div className="stat-header">
+                                  <span className="stat-icon">🏥</span>
+                                  <span className="stat-title">Health Platforms</span>
+                                  <span className="stat-count">{districtFacilities.statistics.health_platforms || 0}</span>
+                                </div>
+                                {/* Show breakdown if health_platforms data exists */}
+                                {districtFacilities.health_platforms && districtFacilities.health_platforms.length > 0 && (
+                                  <div className="stat-subitems">
+                                    {(() => {
+                                      // Count platforms by type
+                                      const platformCounts = {};
+                                      districtFacilities.health_platforms.forEach(hp => {
+                                        const type = hp.type || hp.category || 'Unknown';
+                                        platformCounts[type] = (platformCounts[type] || 0) + 1;
+                                      });
+                                      return Object.entries(platformCounts).map(([type, count]) => (
+                                        <div key={type} className="stat-subitem">
+                                          <span>{type}:</span>
+                                          <span>{count}</span>
+                                        </div>
+                                      ));
+                                    })()}
+                                  </div>
+                                )}
                               </div>
-                      </div>
+                            )}
+                            {/* Health Platforms from boundary data (if no facilities data) */}
+                            {(!districtFacilities.statistics || districtFacilities.statistics.health_platforms === 0) && 
+                             boundary.health_platforms && boundary.health_platforms.length > 0 && (
+                              <div className="stat-category">
+                                <div className="stat-header">
+                                  <span className="stat-icon">🏥</span>
+                                  <span className="stat-title">Health Platforms for Young People</span>
+                                  <span className="stat-count">{boundary.health_platforms.length}</span>
+                                </div>
+                                <div className="stat-subitems">
+                                  {(() => {
+                                    // Count platforms by name
+                                    const platformCounts = {};
+                                    boundary.health_platforms.forEach(platform => {
+                                      platformCounts[platform] = (platformCounts[platform] || 0) + 1;
+                                    });
+                                    return Object.entries(platformCounts).map(([platform, count]) => (
+                                      <div key={platform} className="stat-subitem">
+                                        <span>{platform}:</span>
+                                        <span>{count}</span>
+                                      </div>
+                                    ));
+                                  })()}
+                                </div>
+                              </div>
+                            )}
                       
                             {/* Health Clinics */}
                             {(districtFacilities.statistics.clinics > 0 || districtFacilities.statistics.clinic_pharmacy > 0 || 
