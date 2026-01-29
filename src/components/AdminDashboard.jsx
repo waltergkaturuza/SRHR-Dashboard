@@ -383,6 +383,9 @@ const AdminDashboard = () => {
         code: platform.code || '',
         population: platform.population || 0,
         area_km2: platform.area_km2 || 0,
+        youth_rep_name: platform.youth_rep_name || '',
+        youth_rep_title: platform.youth_rep_title || '',
+        health_platforms: platform.health_platforms || [],
         category: 'boundary'
       });
     } else {
@@ -414,13 +417,21 @@ const AdminDashboard = () => {
     try {
       // Check if it's a boundary
       if (editForm.category === 'boundary' || filterCategory === 'boundaries') {
-        // Update boundary
+        // Update boundary basic info
         await axios.put(getApiUrl(`api/boundaries/${editingId}`), {
           name: editForm.name,
           code: editForm.code || null,
           population: editForm.population ? parseInt(editForm.population) : null,
           area_km2: editForm.area_km2 ? parseFloat(editForm.area_km2) : null
         });
+        
+        // Update youth representative info
+        await axios.put(getApiUrl(`api/districts/${editingId}/youth-info`), {
+          youth_rep_name: editForm.youth_rep_name || null,
+          youth_rep_title: editForm.youth_rep_title || null,
+          health_platforms: editForm.health_platforms || []
+        });
+        
         await fetchBoundaries();
       } else {
         // Determine if it's a health platform or facility
@@ -817,6 +828,10 @@ const AdminDashboard = () => {
                     <th onClick={() => handleSort('area_km2')}>
                       Area (km²) {sortConfig.key === 'area_km2' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
+                    <th onClick={() => handleSort('youth_rep_name')}>
+                      Youth Rep {sortConfig.key === 'youth_rep_name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th>Health Platforms</th>
                   </>
                 ) : (
                   <>
@@ -860,6 +875,34 @@ const AdminDashboard = () => {
                       <td>{platform.code || '-'}</td>
                       <td className="number-cell">{platform.population ? platform.population.toLocaleString() : '-'}</td>
                       <td className="number-cell">{platform.area_km2 ? platform.area_km2.toFixed(2) : '-'}</td>
+                      <td>
+                        {platform.youth_rep_name ? (
+                          <div>
+                            <div className="youth-rep-name">{platform.youth_rep_name}</div>
+                            {platform.youth_rep_title && (
+                              <div className="youth-rep-title">{platform.youth_rep_title}</div>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{color: 'var(--text-muted)', fontStyle: 'italic'}}>Not assigned</span>
+                        )}
+                      </td>
+                      <td>
+                        {platform.health_platforms && platform.health_platforms.length > 0 ? (
+                          <div className="platforms-cell">
+                            <span className="platform-count-badge" title={platform.health_platforms.join(', ')}>
+                              {platform.health_platforms.length} platform{platform.health_platforms.length !== 1 ? 's' : ''}
+                            </span>
+                            <div className="platforms-tooltip-table">
+                              {platform.health_platforms.map((p, idx) => (
+                                <div key={idx} className="platform-item-small">• {p}</div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <span style={{color: 'var(--text-muted)'}}>-</span>
+                        )}
+                      </td>
                     </>
                   ) : (
                     <>
@@ -1154,6 +1197,95 @@ const AdminDashboard = () => {
                       onChange={(e) => setEditForm({...editForm, area_km2: e.target.value})}
                       placeholder="e.g., 6.0"
                     />
+                  </div>
+
+                  {/* Youth Representative Section */}
+                  <div className="form-section-header">
+                    <h3>Youth Representative Information</h3>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Youth Representative Name</label>
+                      <input
+                        type="text"
+                        value={editForm.youth_rep_name || ''}
+                        onChange={(e) => setEditForm({...editForm, youth_rep_name: e.target.value})}
+                        placeholder="e.g., Tinotenda Craig Marimo"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Representative Title</label>
+                      <input
+                        type="text"
+                        value={editForm.youth_rep_title || ''}
+                        onChange={(e) => setEditForm({...editForm, youth_rep_title: e.target.value})}
+                        placeholder="e.g., YPNHW District Facilitator"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Health Platforms for Young People</label>
+                    <div className="platforms-input-container">
+                      {(editForm.health_platforms || []).map((platform, index) => (
+                        <div key={index} className="platform-tag">
+                          <span>{platform}</span>
+                          <button
+                            type="button"
+                            className="remove-platform-btn"
+                            onClick={() => {
+                              const newPlatforms = [...editForm.health_platforms];
+                              newPlatforms.splice(index, 1);
+                              setEditForm({...editForm, health_platforms: newPlatforms});
+                            }}
+                            title="Remove platform"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="add-platform-input">
+                      <input
+                        type="text"
+                        placeholder="Add health platform (e.g., District Health Committee)"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const value = e.target.value.trim();
+                            if (value) {
+                              setEditForm({
+                                ...editForm, 
+                                health_platforms: [...(editForm.health_platforms || []), value]
+                              });
+                              e.target.value = '';
+                            }
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="btn-add-platform"
+                        onClick={(e) => {
+                          const input = e.target.previousSibling;
+                          const value = input.value.trim();
+                          if (value) {
+                            setEditForm({
+                              ...editForm, 
+                              health_platforms: [...(editForm.health_platforms || []), value]
+                            });
+                            input.value = '';
+                          }
+                        }}
+                      >
+                        Add
+                      </button>
+                    </div>
+                    <small style={{color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.5rem', display: 'block'}}>
+                      Press Enter or click Add to include each platform
+                    </small>
                   </div>
 
                   <div className="form-note">

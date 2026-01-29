@@ -12,6 +12,7 @@ import AdminDashboard from './components/AdminDashboard';
 import Navigation from './components/Navigation';
 import ErrorBoundary from './components/ErrorBoundary';
 import Login from './components/Login';
+import Signup from './components/Signup';
 import ProtectedRoute from './components/ProtectedRoute';
 import { Map, BarChart3 } from 'lucide-react';
 import './App.css';
@@ -131,6 +132,7 @@ function App() {
             <Navigation />
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
               <Route path="/" element={<DashboardView />} />
               <Route 
                 path="/admin" 

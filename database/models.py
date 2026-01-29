@@ -200,3 +200,70 @@ class User(db.Model):
     def __repr__(self):
         return f'<User {self.username} ({self.role})>'
 
+
+class DistrictBoundary(db.Model):
+    """District Boundary Model with Youth Representative Information"""
+    __tablename__ = 'district_boundaries'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    code = db.Column(db.String(20))
+    population = db.Column(db.Integer)
+    area_km2 = db.Column(db.Numeric(10, 2))
+    boundary = db.Column(Geometry('MultiPolygon', srid=4326), nullable=False)
+    center_point = db.Column(Geometry('Point', srid=4326))
+    
+    # Youth Representative Information
+    youth_rep_name = db.Column(db.String(200))
+    youth_rep_title = db.Column(db.String(200))
+    
+    # Health Platforms (stored as JSON array)
+    health_platforms = db.Column(db.JSON)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def to_geojson_feature(self):
+        """Convert to GeoJSON feature"""
+        # Extract coordinates from PostGIS geometry
+        boundary_coords = db.session.scalar(func.ST_AsGeoJSON(self.boundary))
+        center_coords = db.session.scalar(func.ST_AsGeoJSON(self.center_point)) if self.center_point else None
+        
+        import json
+        boundary_geom = json.loads(boundary_coords)
+        center_geom = json.loads(center_coords) if center_coords else None
+        
+        return {
+            "type": "Feature",
+            "geometry": boundary_geom,
+            "properties": {
+                "id": self.id,
+                "name": self.name,
+                "code": self.code,
+                "population": self.population,
+                "area_km2": float(self.area_km2) if self.area_km2 else None,
+                "center": center_geom,
+                "youth_rep_name": self.youth_rep_name,
+                "youth_rep_title": self.youth_rep_title,
+                "health_platforms": self.health_platforms or []
+            }
+        }
+    
+    def to_dict(self):
+        """Convert to dictionary"""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "code": self.code,
+            "population": self.population,
+            "area_km2": float(self.area_km2) if self.area_km2 else None,
+            "youth_rep_name": self.youth_rep_name,
+            "youth_rep_title": self.youth_rep_title,
+            "health_platforms": self.health_platforms or [],
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    def __repr__(self):
+        return f'<DistrictBoundary {self.name}>'
+

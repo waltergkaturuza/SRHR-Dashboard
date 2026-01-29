@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS district_boundaries (
     area_km2 NUMERIC(10, 2),
     boundary GEOMETRY(MultiPolygon, 4326) NOT NULL,
     center_point GEOMETRY(Point, 4326),
+    youth_rep_name VARCHAR(200),
+    youth_rep_title VARCHAR(200),
+    health_platforms JSONB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -76,6 +79,10 @@ COMMENT ON COLUMN health_platforms.description IS 'Additional notes and details 
 COMMENT ON COLUMN health_platforms.district IS 'District/suburb name (e.g., Mbare, Borrowdale)';
 COMMENT ON COLUMN facilities.description IS 'Additional notes and details about the facility';
 COMMENT ON COLUMN facilities.district IS 'District/suburb name';
+
+
+
+
 
 
 

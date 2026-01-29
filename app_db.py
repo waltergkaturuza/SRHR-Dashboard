@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from database.models import db, HealthPlatform, TrendData, User
+from database.models import db, HealthPlatform, TrendData, User, DistrictBoundary
 from geoalchemy2.functions import ST_GeomFromText, ST_AsGeoJSON
 from werkzeug.utils import secure_filename
 import os
@@ -837,7 +837,10 @@ def get_boundaries():
                 area_km2,
                 ST_AsGeoJSON(boundary) as boundary_geojson,
                 ST_X(center_point) as center_lon,
-                ST_Y(center_point) as center_lat
+                ST_Y(center_point) as center_lat,
+                youth_rep_name,
+                youth_rep_title,
+                health_platforms
             FROM district_boundaries
             ORDER BY name
         """)
@@ -854,7 +857,10 @@ def get_boundaries():
                 'population': row.population,
                 'area_km2': float(row.area_km2) if row.area_km2 else 0,
                 'boundary': json.loads(row.boundary_geojson),
-                'center': [row.center_lon, row.center_lat] if row.center_lon and row.center_lat else None
+                'center': [row.center_lon, row.center_lat] if row.center_lon and row.center_lat else None,
+                'youth_rep_name': row.youth_rep_name,
+                'youth_rep_title': row.youth_rep_title,
+                'health_platforms': row.health_platforms or []
             })
         
         return jsonify(boundaries_list)
@@ -1028,6 +1034,254 @@ def bulk_delete_boundaries():
     except Exception as e:
         db.session.rollback()
         print(f"Error bulk deleting boundaries: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/districts/youth-info', methods=['GET'])
+def get_districts_youth_info():
+    """Get all districts with their youth representative information"""
+    try:
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        if 'district_boundaries' not in inspector.get_table_names():
+            return jsonify([])
+        
+        query = db.text("""
+            SELECT 
+                id,
+                name,
+                code,
+                population,
+                area_km2,
+                youth_rep_name,
+                youth_rep_title,
+                health_platforms,
+                ST_X(center_point) as center_lon,
+                ST_Y(center_point) as center_lat
+            FROM district_boundaries
+            ORDER BY name
+        """)
+        
+        result = db.session.execute(query)
+        
+        districts_list = []
+        for row in result:
+            districts_list.append({
+                'id': row.id,
+                'name': row.name,
+                'code': row.code,
+                'population': row.population,
+                'area_km2': float(row.area_km2) if row.area_km2 else None,
+                'youth_rep_name': row.youth_rep_name,
+                'youth_rep_title': row.youth_rep_title,
+                'health_platforms': row.health_platforms or [],
+                'center': [row.center_lon, row.center_lat] if row.center_lon and row.center_lat else None
+            })
+        
+        return jsonify(districts_list)
+    except Exception as e:
+        print(f"Error fetching districts youth info: {str(e)}")
+        return jsonify([])
+
+
+@app.route('/api/districts/<int:district_id>/youth-info', methods=['GET', 'PUT'])
+@require_auth('editor')  # Require editor role for updates
+def manage_district_youth_info(district_id):
+    """Get or update youth representative information for a specific district"""
+    try:
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        if 'district_boundaries' not in inspector.get_table_names():
+            return jsonify({"error": "District boundaries table does not exist"}), 404
+        
+        if request.method == 'GET':
+            # Get district youth info
+            query = db.text("""
+                SELECT 
+                    id,
+                    name,
+                    code,
+                    youth_rep_name,
+                    youth_rep_title,
+                    health_platforms
+                FROM district_boundaries
+                WHERE id = :id
+            """)
+            result = db.session.execute(query, {'id': district_id})
+            row = result.fetchone()
+            
+            if not row:
+                return jsonify({"error": "District not found"}), 404
+            
+            return jsonify({
+                'id': row.id,
+                'name': row.name,
+                'code': row.code,
+                'youth_rep_name': row.youth_rep_name,
+                'youth_rep_title': row.youth_rep_title,
+                'health_platforms': row.health_platforms or []
+            })
+        
+        elif request.method == 'PUT':
+            # Update district youth info
+            data = request.json
+            updates = []
+            params = {'id': district_id}
+            
+            if 'youth_rep_name' in data:
+                updates.append('youth_rep_name = :youth_rep_name')
+                params['youth_rep_name'] = data['youth_rep_name']
+            
+            if 'youth_rep_title' in data:
+                updates.append('youth_rep_title = :youth_rep_title')
+                params['youth_rep_title'] = data['youth_rep_title']
+            
+            if 'health_platforms' in data:
+                # Ensure health_platforms is a list
+                platforms = data['health_platforms']
+                if isinstance(platforms, str):
+                    # If string, split by comma or convert to single-item list
+                    platforms = [p.strip() for p in platforms.split(',') if p.strip()]
+                elif not isinstance(platforms, list):
+                    platforms = []
+                
+                updates.append('health_platforms = :health_platforms::jsonb')
+                params['health_platforms'] = json.dumps(platforms)
+            
+            if not updates:
+                return jsonify({"error": "No fields to update"}), 400
+            
+            updates.append('updated_at = CURRENT_TIMESTAMP')
+            
+            update_query = db.text(f"""
+                UPDATE district_boundaries 
+                SET {', '.join(updates)}
+                WHERE id = :id
+            """)
+            
+            db.session.execute(update_query, params)
+            db.session.commit()
+            
+            return jsonify({
+                "message": "District youth information updated successfully",
+                "district_id": district_id
+            })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error managing district youth info: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/districts/name/<district_name>/youth-info', methods=['GET', 'PUT'])
+def manage_district_youth_info_by_name(district_name):
+    """Get or update youth representative information for a district by name"""
+    try:
+        from sqlalchemy import inspect
+        from urllib.parse import unquote
+        
+        inspector = inspect(db.engine)
+        if 'district_boundaries' not in inspector.get_table_names():
+            return jsonify({"error": "District boundaries table does not exist"}), 404
+        
+        decoded_name = unquote(district_name)
+        
+        # Find district by name (case-insensitive)
+        find_query = db.text("""
+            SELECT id 
+            FROM district_boundaries
+            WHERE LOWER(TRIM(name)) = LOWER(TRIM(:district_name))
+               OR LOWER(TRIM(name)) = LOWER(TRIM(:decoded_name))
+            LIMIT 1
+        """)
+        
+        result = db.session.execute(find_query, {
+            'district_name': district_name,
+            'decoded_name': decoded_name
+        })
+        row = result.fetchone()
+        
+        if not row:
+            return jsonify({"error": f"District '{district_name}' not found"}), 404
+        
+        district_id = row.id
+        
+        if request.method == 'GET':
+            # Get district youth info
+            query = db.text("""
+                SELECT 
+                    id,
+                    name,
+                    code,
+                    youth_rep_name,
+                    youth_rep_title,
+                    health_platforms
+                FROM district_boundaries
+                WHERE id = :id
+            """)
+            result = db.session.execute(query, {'id': district_id})
+            row = result.fetchone()
+            
+            return jsonify({
+                'id': row.id,
+                'name': row.name,
+                'code': row.code,
+                'youth_rep_name': row.youth_rep_name,
+                'youth_rep_title': row.youth_rep_title,
+                'health_platforms': row.health_platforms or []
+            })
+        
+        elif request.method == 'PUT':
+            # Update district youth info
+            data = request.json
+            updates = []
+            params = {'id': district_id}
+            
+            if 'youth_rep_name' in data:
+                updates.append('youth_rep_name = :youth_rep_name')
+                params['youth_rep_name'] = data['youth_rep_name']
+            
+            if 'youth_rep_title' in data:
+                updates.append('youth_rep_title = :youth_rep_title')
+                params['youth_rep_title'] = data['youth_rep_title']
+            
+            if 'health_platforms' in data:
+                # Ensure health_platforms is a list
+                platforms = data['health_platforms']
+                if isinstance(platforms, str):
+                    platforms = [p.strip() for p in platforms.split(',') if p.strip()]
+                elif not isinstance(platforms, list):
+                    platforms = []
+                
+                updates.append('health_platforms = :health_platforms::jsonb')
+                params['health_platforms'] = json.dumps(platforms)
+            
+            if not updates:
+                return jsonify({"error": "No fields to update"}), 400
+            
+            updates.append('updated_at = CURRENT_TIMESTAMP')
+            
+            update_query = db.text(f"""
+                UPDATE district_boundaries 
+                SET {', '.join(updates)}
+                WHERE id = :id
+            """)
+            
+            db.session.execute(update_query, params)
+            db.session.commit()
+            
+            return jsonify({
+                "message": f"Youth information for district '{district_name}' updated successfully",
+                "district_id": district_id
+            })
+    
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error managing district youth info by name: {str(e)}")
         import traceback
         print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500

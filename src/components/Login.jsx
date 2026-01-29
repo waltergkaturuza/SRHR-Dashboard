@@ -284,7 +284,7 @@ const Login = () => {
 
           <div className="signup-link">
             <span>Don't have an account?</span>
-            <a href="#" onClick={(e) => { e.preventDefault(); }}>
+            <a href="#" onClick={(e) => { e.preventDefault(); navigate('/signup'); }}>
               Signup
             </a>
           </div>

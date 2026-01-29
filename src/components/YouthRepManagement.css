@@ -1,0 +1,353 @@
+.youth-rep-management {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.youth-rep-management h2 {
+  margin-bottom: 2rem;
+  color: #2c3e50;
+  font-size: 1.8rem;
+}
+
+.youth-rep-management h3 {
+  margin-bottom: 1.5rem;
+  color: #34495e;
+  font-size: 1.4rem;
+}
+
+/* Loading and Error States */
+.youth-rep-management.loading,
+.youth-rep-management.error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  text-align: center;
+}
+
+.youth-rep-management.error button {
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.youth-rep-management.error button:hover {
+  background-color: #2980b9;
+}
+
+/* Districts Table */
+.districts-table-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.districts-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.districts-table thead {
+  background-color: #34495e;
+  color: white;
+}
+
+.districts-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.districts-table tbody tr {
+  border-bottom: 1px solid #ecf0f1;
+  transition: background-color 0.2s;
+}
+
+.districts-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.districts-table td {
+  padding: 1rem;
+  vertical-align: middle;
+}
+
+.district-name {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.districts-table td em {
+  color: #95a5a6;
+  font-style: italic;
+}
+
+/* Platforms Preview */
+.platforms-preview {
+  position: relative;
+  display: inline-block;
+}
+
+.platform-count {
+  background-color: #3498db;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  cursor: help;
+}
+
+.platforms-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 250px;
+  margin-bottom: 0.5rem;
+}
+
+.platforms-preview:hover .platforms-tooltip {
+  display: block;
+}
+
+.platforms-tooltip ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.platforms-tooltip li {
+  padding: 0.25rem 0;
+  color: #2c3e50;
+  font-size: 0.9rem;
+}
+
+.platforms-tooltip li:not(:last-child) {
+  border-bottom: 1px solid #ecf0f1;
+}
+
+/* Edit Button */
+.edit-btn-small {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+
+.edit-btn-small:hover {
+  background-color: #2980b9;
+}
+
+/* Edit Form */
+.edit-form-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.edit-form .form-group {
+  margin-bottom: 1.5rem;
+}
+
+.edit-form label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #2c3e50;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.edit-form input[type="text"] {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.edit-form input[type="text"]:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+/* Platforms List */
+.platforms-list {
+  margin-bottom: 1rem;
+  min-height: 50px;
+  border: 1px solid #ecf0f1;
+  border-radius: 4px;
+  padding: 0.5rem;
+  background-color: #f8f9fa;
+}
+
+.platform-item {
+  display: inline-flex;
+  align-items: center;
+  background-color: #3498db;
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 20px;
+  margin: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.platform-item span {
+  margin-right: 0.5rem;
+}
+
+.platform-item .remove-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 0;
+  margin: 0;
+  line-height: 1;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.platform-item .remove-btn:hover {
+  opacity: 1;
+}
+
+/* Add Platform */
+.add-platform {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.add-platform input {
+  flex: 1;
+}
+
+.add-platform .add-btn {
+  background-color: #27ae60;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+}
+
+.add-platform .add-btn:hover {
+  background-color: #229954;
+}
+
+/* Form Actions */
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #ecf0f1;
+}
+
+.form-actions button {
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.save-btn {
+  background-color: #27ae60;
+  color: white;
+}
+
+.save-btn:hover {
+  background-color: #229954;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+}
+
+.cancel-btn {
+  background-color: #95a5a6;
+  color: white;
+}
+
+.cancel-btn:hover {
+  background-color: #7f8c8d;
+}
+
+/* No Districts */
+.no-districts {
+  padding: 3rem;
+  text-align: center;
+  color: #95a5a6;
+}
+
+.no-districts p {
+  font-size: 1.1rem;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .districts-table {
+    font-size: 0.9rem;
+  }
+
+  .districts-table th,
+  .districts-table td {
+    padding: 0.75rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .youth-rep-management {
+    padding: 1rem;
+  }
+
+  .districts-table-container {
+    overflow-x: auto;
+  }
+
+  .districts-table {
+    min-width: 800px;
+  }
+
+  .edit-form-container {
+    padding: 1rem;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions button {
+    width: 100%;
+  }
+}
