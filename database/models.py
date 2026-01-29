@@ -1,10 +1,20 @@
 from flask_sqlalchemy import SQLAlchemy
 from geoalchemy2 import Geometry
 from datetime import datetime
-from sqlalchemy import func
+from sqlalchemy import func, Table, Column, Integer, ForeignKey
 from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
+
+# Association table for many-to-many relationship between youth reps and districts
+youth_rep_districts = Table(
+    'youth_rep_districts',
+    db.Model.metadata,
+    Column('id', Integer, primary_key=True),
+    Column('youth_rep_id', Integer, ForeignKey('youth_representatives.id', ondelete='CASCADE'), nullable=False),
+    Column('district_id', Integer, ForeignKey('district_boundaries.id', ondelete='CASCADE'), nullable=False),
+    db.UniqueConstraint('youth_rep_id', 'district_id', name='unique_youth_rep_district')
+)
 
 class HealthPlatform(db.Model):
     """Health Decision-Making Platform Model"""
@@ -266,4 +276,38 @@ class DistrictBoundary(db.Model):
     
     def __repr__(self):
         return f'<DistrictBoundary {self.name}>'
+
+
+class YouthRepresentative(db.Model):
+    """Youth Representative Model - can be assigned to multiple districts"""
+    __tablename__ = 'youth_representatives'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    title = db.Column(db.String(200))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Many-to-many relationship with districts
+    districts = db.relationship(
+        'DistrictBoundary',
+        secondary=youth_rep_districts,
+        backref=db.backref('youth_representatives', lazy='dynamic'),
+        lazy='dynamic'
+    )
+    
+    def to_dict(self):
+        """Convert to dictionary"""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "title": self.title,
+            "district_ids": [d.id for d in self.districts],
+            "district_names": [d.name for d in self.districts],
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    def __repr__(self):
+        return f'<YouthRepresentative {self.name} ({self.title})>'
 

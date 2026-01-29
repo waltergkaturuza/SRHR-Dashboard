@@ -27,7 +27,16 @@ const AdminDashboard = () => {
   const [availableYears, setAvailableYears] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: 'year', direction: 'desc' });
   const [selectedBoundaries, setSelectedBoundaries] = useState([]);
-  const [activeTab, setActiveTab] = useState('data'); // 'data' or 'settings'
+  const [activeTab, setActiveTab] = useState('data'); // 'data', 'settings', or 'youth-reps'
+  const [youthReps, setYouthReps] = useState([]);
+  const [districts, setDistricts] = useState([]);
+  const [showYouthRepForm, setShowYouthRepForm] = useState(false);
+  const [editingYouthRep, setEditingYouthRep] = useState(null);
+  const [youthRepForm, setYouthRepForm] = useState({
+    name: '',
+    title: '',
+    district_ids: []
+  });
 
   // New platform form
   const [newPlatform, setNewPlatform] = useState({
@@ -315,6 +324,96 @@ const AdminDashboard = () => {
       if (filterYear === 'all' || filterYear === '2024' || !fallbackYears.includes(parseInt(filterYear))) {
         setFilterYear(currentYear.toString());
       }
+    }
+  };
+
+  const fetchYouthReps = async () => {
+    try {
+      const response = await axios.get(getApiUrl('api/youth-reps'));
+      setYouthReps(response.data || []);
+    } catch (error) {
+      console.error('Error fetching youth reps:', error);
+      setYouthReps([]);
+    }
+  };
+
+  const fetchDistricts = async () => {
+    try {
+      const response = await axios.get(getApiUrl('api/districts'));
+      setDistricts(response.data || []);
+    } catch (error) {
+      console.error('Error fetching districts:', error);
+      setDistricts([]);
+    }
+  };
+
+  const handleYouthRepSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('You must be logged in to manage youth representatives');
+        return;
+      }
+
+      const url = editingYouthRep 
+        ? getApiUrl(`api/youth-reps/${editingYouthRep.id}`)
+        : getApiUrl('api/youth-reps');
+      
+      const method = editingYouthRep ? 'PUT' : 'POST';
+
+      await axios({
+        method,
+        url,
+        data: youthRepForm,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      await fetchYouthReps();
+      setShowYouthRepForm(false);
+      setEditingYouthRep(null);
+      setYouthRepForm({ name: '', title: '', district_ids: [] });
+      alert(editingYouthRep ? 'Youth representative updated successfully!' : 'Youth representative created successfully!');
+    } catch (error) {
+      console.error('Error saving youth rep:', error);
+      alert(`Error: ${error.response?.data?.error || error.message}`);
+    }
+  };
+
+  const handleEditYouthRep = (youthRep) => {
+    setEditingYouthRep(youthRep);
+    setYouthRepForm({
+      name: youthRep.name,
+      title: youthRep.title || '',
+      district_ids: youthRep.districts.map(d => d.id)
+    });
+    setShowYouthRepForm(true);
+  };
+
+  const handleDeleteYouthRep = async (id) => {
+    if (!confirm('Are you sure you want to delete this youth representative?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('You must be logged in to delete youth representatives');
+        return;
+      }
+
+      await axios.delete(getApiUrl(`api/youth-reps/${id}`), {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      await fetchYouthReps();
+      alert('Youth representative deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting youth rep:', error);
+      alert(`Error: ${error.response?.data?.error || error.message}`);
     }
   };
 
@@ -663,6 +762,17 @@ const AdminDashboard = () => {
           <span>Data Management</span>
         </button>
         <button
+          className={`admin-tab ${activeTab === 'youth-reps' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveTab('youth-reps');
+            fetchYouthReps();
+            fetchDistricts();
+          }}
+        >
+          <Plus size={18} />
+          <span>Youth Representatives</span>
+        </button>
+        <button
           className={`admin-tab ${activeTab === 'settings' ? 'active' : ''}`}
           onClick={() => setActiveTab('settings')}
         >
@@ -673,6 +783,177 @@ const AdminDashboard = () => {
 
       {activeTab === 'settings' ? (
         <UserManagement />
+      ) : activeTab === 'youth-reps' ? (
+        <div className="youth-reps-management">
+          <div className="youth-reps-header">
+            <h2>Youth Representatives Management</h2>
+            <button className="btn-add" onClick={() => {
+              setEditingYouthRep(null);
+              setYouthRepForm({ name: '', title: '', district_ids: [] });
+              setShowYouthRepForm(true);
+            }}>
+              <Plus size={18} />
+              Add Youth Representative
+            </button>
+          </div>
+
+          {showYouthRepForm && (
+            <div className="youth-rep-form-modal">
+              <div className="youth-rep-form-content">
+                <div className="form-header">
+                  <h3>{editingYouthRep ? 'Edit' : 'Add'} Youth Representative</h3>
+                  <button className="close-btn" onClick={() => {
+                    setShowYouthRepForm(false);
+                    setEditingYouthRep(null);
+                    setYouthRepForm({ name: '', title: '', district_ids: [] });
+                  }}>
+                    <X size={20} />
+                  </button>
+                </div>
+                <form onSubmit={handleYouthRepSubmit}>
+                  <div className="form-group">
+                    <label>Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={youthRepForm.name}
+                      onChange={(e) => setYouthRepForm({...youthRepForm, name: e.target.value})}
+                      placeholder="e.g., Tinotenda Craig Marimo"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Title</label>
+                    <input
+                      type="text"
+                      value={youthRepForm.title}
+                      onChange={(e) => setYouthRepForm({...youthRepForm, title: e.target.value})}
+                      placeholder="e.g., YPNHW District Facilitator"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Districts * (Select multiple)</label>
+                    <select
+                      multiple
+                      required
+                      size={Math.min(districts.length, 10)}
+                      value={youthRepForm.district_ids}
+                      onChange={(e) => {
+                        const selectedIds = Array.from(e.target.selectedOptions, option => parseInt(option.value));
+                        setYouthRepForm({...youthRepForm, district_ids: selectedIds});
+                      }}
+                      style={{ minHeight: '200px', padding: '8px' }}
+                    >
+                      {districts.map(district => (
+                        <option key={district.id} value={district.id}>
+                          {district.name} {district.code ? `(${district.code})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <small style={{ display: 'block', marginTop: '4px', color: '#666' }}>
+                      Hold Ctrl (Windows) or Cmd (Mac) to select multiple districts
+                    </small>
+                    {youthRepForm.district_ids.length > 0 && (
+                      <div style={{ marginTop: '8px' }}>
+                        <strong>Selected ({youthRepForm.district_ids.length}):</strong>
+                        <div style={{ marginTop: '4px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {youthRepForm.district_ids.map(id => {
+                            const district = districts.find(d => d.id === id);
+                            return district ? (
+                              <span key={id} style={{
+                                background: '#e3f2fd',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                fontSize: '12px'
+                              }}>
+                                {district.name}
+                              </span>
+                            ) : null;
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="form-actions">
+                    <button type="submit" className="btn-save">
+                      <Save size={18} />
+                      {editingYouthRep ? 'Update' : 'Create'} Representative
+                    </button>
+                    <button type="button" className="btn-cancel" onClick={() => {
+                      setShowYouthRepForm(false);
+                      setEditingYouthRep(null);
+                      setYouthRepForm({ name: '', title: '', district_ids: [] });
+                    }}>
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          <div className="youth-reps-table">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Title</th>
+                  <th>Districts</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {youthReps.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                      No youth representatives found. Click "Add Youth Representative" to create one.
+                    </td>
+                  </tr>
+                ) : (
+                  youthReps.map(rep => (
+                    <tr key={rep.id}>
+                      <td className="name-cell">{rep.name}</td>
+                      <td>{rep.title || '-'}</td>
+                      <td>
+                        {rep.districts && rep.districts.length > 0 ? (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            {rep.districts.map((district, idx) => (
+                              <span key={district.id} style={{
+                                background: '#e3f2fd',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                fontSize: '12px'
+                              }}>
+                                {district.name}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span style={{ color: '#999', fontStyle: 'italic' }}>No districts assigned</span>
+                        )}
+                      </td>
+                      <td>
+                        <button
+                          className="btn-edit-small"
+                          onClick={() => handleEditYouthRep(rep)}
+                          title="Edit"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          className="btn-delete-small"
+                          onClick={() => handleDeleteYouthRep(rep.id)}
+                          title="Delete"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : (
         <>
       <div className="admin-toolbar">

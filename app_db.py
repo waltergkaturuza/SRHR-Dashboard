@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from database.models import db, HealthPlatform, TrendData, User, DistrictBoundary
+from database.models import db, HealthPlatform, TrendData, User, DistrictBoundary, YouthRepresentative, youth_rep_districts
 from geoalchemy2.functions import ST_GeomFromText, ST_AsGeoJSON
 from werkzeug.utils import secure_filename
 import os
@@ -1285,6 +1285,246 @@ def manage_district_youth_info_by_name(district_name):
         import traceback
         print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
+
+
+# New API endpoints for many-to-many youth rep to districts relationship
+
+@app.route('/api/youth-reps', methods=['GET'])
+def get_youth_reps():
+    """Get all youth representatives with their assigned districts"""
+    try:
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        if 'youth_representatives' not in inspector.get_table_names():
+            return jsonify([])
+        
+        query = db.text("""
+            SELECT 
+                yr.id,
+                yr.name,
+                yr.title,
+                yr.created_at,
+                yr.updated_at,
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'id', db.id,
+                            'name', db.name,
+                            'code', db.code
+                        )
+                    ) FILTER (WHERE db.id IS NOT NULL),
+                    '[]'::json
+                ) as districts
+            FROM youth_representatives yr
+            LEFT JOIN youth_rep_districts yrd ON yr.id = yrd.youth_rep_id
+            LEFT JOIN district_boundaries db ON yrd.district_id = db.id
+            GROUP BY yr.id, yr.name, yr.title, yr.created_at, yr.updated_at
+            ORDER BY yr.name
+        """)
+        
+        result = db.session.execute(query)
+        youth_reps = []
+        for row in result:
+            districts_list = row.districts if isinstance(row.districts, list) else json.loads(row.districts) if row.districts else []
+            youth_reps.append({
+                'id': row.id,
+                'name': row.name,
+                'title': row.title,
+                'districts': districts_list,
+                'created_at': row.created_at.isoformat() if row.created_at else None,
+                'updated_at': row.updated_at.isoformat() if row.updated_at else None
+            })
+        
+        return jsonify(youth_reps)
+    except Exception as e:
+        print(f"Error fetching youth reps: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/youth-reps', methods=['POST'])
+@require_auth('editor')
+def create_youth_rep():
+    """Create a new youth representative and assign to districts"""
+    try:
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        if 'youth_representatives' not in inspector.get_table_names():
+            return jsonify({"error": "Youth representatives table does not exist. Please run migration first."}), 500
+        
+        data = request.json
+        name = data.get('name', '').strip()
+        title = data.get('title', '').strip()
+        district_ids = data.get('district_ids', [])
+        
+        if not name:
+            return jsonify({"error": "Youth representative name is required"}), 400
+        
+        # Check if rep with same name and title already exists
+        check_query = db.text("""
+            SELECT id FROM youth_representatives 
+            WHERE name = :name AND (title = :title OR (title IS NULL AND :title IS NULL))
+        """)
+        existing = db.session.execute(check_query, {'name': name, 'title': title or None}).fetchone()
+        
+        if existing:
+            return jsonify({"error": f"Youth representative '{name}' with title '{title}' already exists"}), 400
+        
+        # Create the youth representative
+        insert_query = db.text("""
+            INSERT INTO youth_representatives (name, title, created_at, updated_at)
+            VALUES (:name, :title, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            RETURNING id
+        """)
+        result = db.session.execute(insert_query, {'name': name, 'title': title or None})
+        youth_rep_id = result.fetchone().id
+        
+        # Assign districts
+        if district_ids:
+            for district_id in district_ids:
+                try:
+                    assign_query = db.text("""
+                        INSERT INTO youth_rep_districts (youth_rep_id, district_id, created_at)
+                        VALUES (:youth_rep_id, :district_id, CURRENT_TIMESTAMP)
+                        ON CONFLICT (youth_rep_id, district_id) DO NOTHING
+                    """)
+                    db.session.execute(assign_query, {'youth_rep_id': youth_rep_id, 'district_id': district_id})
+                except Exception as e:
+                    print(f"Warning: Could not assign district {district_id}: {str(e)}")
+        
+        db.session.commit()
+        
+        return jsonify({
+            "message": "Youth representative created successfully",
+            "id": youth_rep_id
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating youth rep: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/youth-reps/<int:youth_rep_id>', methods=['PUT'])
+@require_auth('editor')
+def update_youth_rep(youth_rep_id):
+    """Update a youth representative and their district assignments"""
+    try:
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        if 'youth_representatives' not in inspector.get_table_names():
+            return jsonify({"error": "Youth representatives table does not exist"}), 500
+        
+        data = request.json
+        
+        # Check if rep exists
+        check_query = db.text("SELECT id FROM youth_representatives WHERE id = :id")
+        existing = db.session.execute(check_query, {'id': youth_rep_id}).fetchone()
+        
+        if not existing:
+            return jsonify({"error": "Youth representative not found"}), 404
+        
+        # Update name and title if provided
+        updates = []
+        params = {'id': youth_rep_id}
+        
+        if 'name' in data:
+            updates.append('name = :name')
+            params['name'] = data['name'].strip()
+        
+        if 'title' in data:
+            updates.append('title = :title')
+            params['title'] = data['title'].strip() or None
+        
+        if updates:
+            updates.append('updated_at = CURRENT_TIMESTAMP')
+            update_query = db.text(f"""
+                UPDATE youth_representatives 
+                SET {', '.join(updates)}
+                WHERE id = :id
+            """)
+            db.session.execute(update_query, params)
+        
+        # Update district assignments if provided
+        if 'district_ids' in data:
+            # Remove all existing assignments
+            delete_query = db.text("DELETE FROM youth_rep_districts WHERE youth_rep_id = :id")
+            db.session.execute(delete_query, {'id': youth_rep_id})
+            
+            # Add new assignments
+            district_ids = data['district_ids']
+            if district_ids:
+                for district_id in district_ids:
+                    assign_query = db.text("""
+                        INSERT INTO youth_rep_districts (youth_rep_id, district_id, created_at)
+                        VALUES (:youth_rep_id, :district_id, CURRENT_TIMESTAMP)
+                    """)
+                    db.session.execute(assign_query, {'youth_rep_id': youth_rep_id, 'district_id': district_id})
+        
+        db.session.commit()
+        
+        return jsonify({
+            "message": "Youth representative updated successfully",
+            "id": youth_rep_id
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating youth rep: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/youth-reps/<int:youth_rep_id>', methods=['DELETE'])
+@require_auth('editor')
+def delete_youth_rep(youth_rep_id):
+    """Delete a youth representative (cascade will remove district assignments)"""
+    try:
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        if 'youth_representatives' not in inspector.get_table_names():
+            return jsonify({"error": "Youth representatives table does not exist"}), 500
+        
+        delete_query = db.text("DELETE FROM youth_representatives WHERE id = :id")
+        result = db.session.execute(delete_query, {'id': youth_rep_id})
+        db.session.commit()
+        
+        if result.rowcount == 0:
+            return jsonify({"error": "Youth representative not found"}), 404
+        
+        return jsonify({"message": "Youth representative deleted successfully"})
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting youth rep: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/districts', methods=['GET'])
+def get_districts():
+    """Get all districts (for use in forms)"""
+    try:
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        if 'district_boundaries' not in inspector.get_table_names():
+            return jsonify([])
+        
+        query = db.text("""
+            SELECT id, name, code
+            FROM district_boundaries
+            ORDER BY name
+        """)
+        
+        result = db.session.execute(query)
+        districts = [{'id': row.id, 'name': row.name, 'code': row.code} for row in result]
+        
+        return jsonify(districts)
+    except Exception as e:
+        print(f"Error fetching districts: {str(e)}")
+        return jsonify([])
 
 
 @app.route('/api/upload-boundaries', methods=['POST'])
